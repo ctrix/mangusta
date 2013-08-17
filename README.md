@@ -1,0 +1,4 @@
+mangusta
+========
+
+Lightweight webserver library
