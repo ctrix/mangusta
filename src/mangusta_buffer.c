@@ -12,7 +12,7 @@
 
 #define APR_ERROR       APR_EGENERAL
 
-#define NN_BUF_DEFAULT_LEN	8192
+#define DEFAULT_BUFFER_SIZE 8192
 
 #define BPTR(buf)  ((buf)->data + (buf)->offset)
 #define BEND(buf)  (BPTR(buf) + (buf)->len)
@@ -106,7 +106,7 @@ APR_DECLARE(mangusta_buffer_t *) mangusta_buffer_init(apr_pool_t * main_pool, ap
     assert(pool);
 
     if (start_size == 0) {
-        start_size = NN_BUF_DEFAULT_LEN;
+        start_size = DEFAULT_BUFFER_SIZE;
     }
 
     buf = apr_palloc(pool, sizeof(mangusta_buffer_t));

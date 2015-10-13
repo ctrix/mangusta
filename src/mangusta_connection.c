@@ -18,7 +18,7 @@ static void on_disconnect(mangusta_connection_t * conn) {
 #if DEBUG_CONNECTION >= 1
             nn_log(NN_LOG_DEBUG, "Closing client side socket");
 #endif
-            apr_sleep(10000);
+            apr_sleep(APR_USEC_PER_SEC / 10);
         };
         conn->sock = NULL;
     }
@@ -31,11 +31,11 @@ static void on_read(mangusta_connection_t *conn) {
     apr_status_t rv;
     char b[1024];
 
-    tot = sizeof(b);
+    tot = sizeof(b) - 2;
 
     rv = apr_socket_recv(conn->sock, b, &tot);
     if ( rv == APR_SUCCESS ) {
-
+        b[tot] = '\0';
         mangusta_buffer_append(conn->buffer_r, b, tot);
         printf("%zu %u<-----------\n", tot, mangusta_buffer_size(conn->buffer_r) );
         printf("%s\n", b);
@@ -49,8 +49,6 @@ static void on_read(mangusta_connection_t *conn) {
 
     return;
 }
-
-static int eloops = 0; // TODO Remove this dev hack
 
 static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void *data) {
     char *ip;
@@ -84,8 +82,6 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
     conn->buffer_r = mangusta_buffer_init(conn->pool, 0, 0);
     assert(conn->buffer_r != NULL);
 
-    eloops = 0;
-
     while (!conn->terminated) {
         int i;
         apr_int32_t num;
@@ -106,11 +102,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
             }
         }
         else if (rv == APR_TIMEUP) {
-                //printf("************** TIMEOUT %d\n", rv);
-                eloops++;
-                if ( eloops >= 2) {
-                    on_disconnect(conn);
-                }
+                printf("************** TIMEOUT %d\n", rv);
         }
         else if (rv == APR_EOF) {
                 printf("************** EOF %d\n", rv);
@@ -121,6 +113,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
         else if (rv == APR_EINTR) {
                 printf("************** EINTR %d\n", rv);
                 apr_socket_close(conn->sock);
+                conn->terminated = 1;
                 break;
         }
         else {
@@ -133,13 +126,13 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 #if DEBUG_CONNECTION >= 1
     nn_log(NN_LOG_DEBUG, "Terminating connection thread");
 #endif
+    //mangusta_connection_destroy(conn);
 
-    mangusta_connection_destroy(conn);
     return NULL;
 }
 
 
-apr_status_t mangusta_connection_play(mangusta_connection_t * conn) {
+apr_status_t mangusta_connection_play(mangusta_connection_t *conn) {
     apr_thread_t *thread;
     apr_threadattr_t *thd_attr;
 
@@ -163,16 +156,18 @@ apr_status_t mangusta_connection_play(mangusta_connection_t * conn) {
     return APR_SUCCESS;
 }
 
-mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock, apr_pool_t * pool) {
+mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock) {
     mangusta_connection_t *c = NULL;
+    apr_pool_t *npool;
 
-    assert(pool);
+    //assert( apr_pool_create(&npool, pool) == APR_SUCCESS);
+    assert( apr_pool_create_core(&npool) == APR_SUCCESS);
 
-    c = apr_pcalloc(pool, sizeof(mangusta_connection_t));
+    c = apr_pcalloc(npool, sizeof(mangusta_connection_t));
     if (c != NULL) {
         c->ctx = ctx;
         c->sock = sock;
-        c->pool = pool;
+        c->pool = npool;
     }
 
     return c;

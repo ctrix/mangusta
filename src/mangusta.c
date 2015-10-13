@@ -149,7 +149,7 @@ static void *on_client_connect(apr_thread_t *thread, void *data) {
             apr_socket_opt_set(new_sock, APR_SO_KEEPALIVE, 1);
             apr_socket_opt_set(new_sock, APR_SO_LINGER, 1);
 
-            conn = mangusta_connection_create(ctx, new_sock, pool);
+            conn = mangusta_connection_create(ctx, new_sock);
             if (conn != NULL) {
 
                 if ( ctx->on_connect != NULL ) {
@@ -237,22 +237,21 @@ APR_DECLARE(apr_status_t) mangusta_context_running(mangusta_ctx_t *ctx) {
 }
 
 APR_DECLARE(apr_status_t) mangusta_context_stop(mangusta_ctx_t *ctx) {
-    apr_status_t status = APR_SUCCESS;
     assert(ctx);
 
     ctx->stopped = 1;
-    if ( ctx->thread != NULL ) {
-        apr_thread_join(&status, ctx->thread);
-    }
 
-    apr_socket_close(ctx->sock);
-
-    return status;
+    return apr_socket_close(ctx->sock);
 }
 
 APR_DECLARE(apr_status_t) mangusta_context_free(mangusta_ctx_t *ctx) {
+    apr_status_t status = APR_SUCCESS;
     apr_pool_t *pool;
     assert(ctx);
+
+    if ( ctx->thread != NULL ) {
+        apr_thread_join(&status, ctx->thread);
+    }
 
     pool = ctx->pool;
     // Improve cleanup: thread pool, pollset etcc...

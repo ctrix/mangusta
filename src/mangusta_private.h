@@ -10,7 +10,7 @@
 #define zstr(x)  ( ((x==NULL) || (*x == '\0')) ? 1 : 0)
 
 #define DEFAULT_POLLSET_NUM 8
-#define DEFAULT_POLL_TIMEOUT (APR_USEC_PER_SEC * 1)
+#define DEFAULT_POLL_TIMEOUT (APR_USEC_PER_SEC * 0.1)
 
 #define DEFAULT_SOCKET_BACKLOG SOMAXCONN
 #define DEFAULT_THREAD_STACKSIZE 250 * 1024
@@ -76,6 +76,6 @@ struct mangusta_connection_s {
     mangusta_buffer_t           *buffer_r;
 };
 
-mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock, apr_pool_t * pool);
+mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock);
 void mangusta_connection_destroy(mangusta_connection_t * conn);
 apr_status_t mangusta_connection_play(mangusta_connection_t * conn);

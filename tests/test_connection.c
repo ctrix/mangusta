@@ -35,7 +35,7 @@ void test_connection() {
     curl_get("http://127.0.0.1:8090/test");
 
     while ( mangusta_context_running(ctx) == APR_SUCCESS ) {
-        apr_sleep(10000);
+        apr_sleep(100000);
     }
 
     assert_int_equal(           mangusta_context_free(ctx), APR_SUCCESS);
