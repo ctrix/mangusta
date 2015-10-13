@@ -35,12 +35,19 @@ static void on_read(mangusta_connection_t *conn) {
 
     rv = apr_socket_recv(conn->sock, b, &tot);
     if ( rv == APR_SUCCESS ) {
-        b[tot] = '\0';
+	apr_uint32_t blen;
+	char *bdata;
+	char *end;
+
         mangusta_buffer_append(conn->buffer_r, b, tot);
-        printf("%zu %u<-----------\n", tot, mangusta_buffer_size(conn->buffer_r) );
-        printf("%s\n", b);
-/*
-*/
+
+	blen = mangusta_buffer_get_char(conn->buffer_r, &bdata);
+	if ( ( blen > 0 ) && (end = strnstr(bdata, HEADERS_END_MARKER, blen)) != NULL ) {
+	    blen = (end + strlen(HEADERS_END_MARKER)) - bdata;
+	    /* Headers found, so parse them */
+
+	}
+
     }
     /* APR_EOF MEans the stream has been closed */
     else {
@@ -85,7 +92,6 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
     while (!conn->terminated) {
         int i;
         apr_int32_t num;
-        apr_socket_t *s;
         const apr_pollfd_t *ret_pfd;
 
         rv = apr_pollset_poll(conn->pollset, DEFAULT_POLL_TIMEOUT, &num, &ret_pfd);
@@ -95,38 +101,36 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
             conn->last_io = apr_time_now();
 
             for (i = 0; i < num; i++) {
-                s = ret_pfd[i].desc.s;
+		//apr_socket_t *s;
+                //s = ret_pfd[i].desc.s;
 
                 on_read(conn);
-                apr_socket_close(conn->sock);
             }
         }
-        else if (rv == APR_TIMEUP) {
+
+	/*
+        if (rv == APR_TIMEUP) {
                 printf("************** TIMEOUT %d\n", rv);
         }
         else if (rv == APR_EOF) {
                 printf("************** EOF %d\n", rv);
-                apr_pollset_remove(conn->pollset, &conn->pfd);
-                apr_socket_close(conn->sock);
-                break;
         }
         else if (rv == APR_EINTR) {
                 printf("************** EINTR %d\n", rv);
-                apr_socket_close(conn->sock);
-                conn->terminated = 1;
-                break;
         }
-        else {
-                printf("************** %d *****\n", rv);
-//                assert( rv == APR_SUCCESS);
-//            client_timer_inactivity_check(conn);
-        }
+	*/
+
+	if ( rv != APR_SUCCESS ) {
+	    conn->terminated = 1;
+	    apr_socket_close(conn->sock);
+	}
+
     }
 
 #if DEBUG_CONNECTION >= 1
     nn_log(NN_LOG_DEBUG, "Terminating connection thread");
 #endif
-    //mangusta_connection_destroy(conn);
+    mangusta_connection_destroy(conn);
 
     return NULL;
 }

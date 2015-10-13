@@ -1,5 +1,7 @@
 
 #include <assert.h>
+#include <string.h>
+#include <stddef.h>
 
 #include "mangusta.h"
 #include "mangusta_buffer.h"
@@ -16,7 +18,7 @@
 #define DEFAULT_THREAD_STACKSIZE 250 * 1024
 #define DEFAULT_BUFFER_SIZE 8192
 #define REQUEST_HEADERS_MAX_SIZE 4096
-
+#define HEADERS_END_MARKER "\r\n\r\n"
 
 enum mangusta_request_state_e {
     MANGUSTA_REQUEST_INIT,
@@ -79,3 +81,7 @@ struct mangusta_connection_s {
 mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock);
 void mangusta_connection_destroy(mangusta_connection_t * conn);
 apr_status_t mangusta_connection_play(mangusta_connection_t * conn);
+
+#ifndef strnstr
+char *strnstr(const char *haystack, const char *needle, size_t len);
+#endif

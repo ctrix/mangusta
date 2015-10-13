@@ -301,7 +301,6 @@ APR_DECLARE(apr_status_t) mangusta_buffer_read(mangusta_buffer_t * buf, char *de
     if (!cp) {
         return APR_ERROR;
     } else {
-        /* If we don't have any destination, this function simply removes data from the buffer. */
         if (dest) {
             memcpy(dest, cp, size);
         }

@@ -43,7 +43,7 @@ int main(void) {
   const struct CMUnitTest tests[] = {
     cmocka_unit_test(test_library_initialization),
     cmocka_unit_test(test_context_setup),
-    cmocka_unit_test(test_connection),
+    cmocka_unit_test(test_connection)
   };
 
   return cmocka_run_group_tests(tests, NULL, NULL);

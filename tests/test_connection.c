@@ -7,7 +7,7 @@ static apr_status_t connect_cb(mangusta_ctx_t *ctx, apr_socket_t *sock, apr_pool
     return APR_SUCCESS;
 }
 
-void test_connection() {
+void test_connection(void) {
     apr_status_t status;
     mangusta_ctx_t *ctx;
     apr_pool_t *pool;
