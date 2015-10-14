@@ -35,9 +35,9 @@ static void curl_get(char *url) {
     }
 }
 
-#include "test_initialization.c"
-#include "test_context.c"
-#include "test_connection.c"
+#include "test_suite_initialization.c"
+#include "test_suite_context.c"
+#include "test_suite_connection.c"
 
 int main(void) {
   const struct CMUnitTest tests[] = {

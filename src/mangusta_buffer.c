@@ -310,6 +310,7 @@ APR_DECLARE(apr_status_t) mangusta_buffer_read(mangusta_buffer_t * buf, char *de
 }
 
 APR_DECLARE(apr_status_t) mangusta_buffer_extract(mangusta_buffer_t * buf, char *dest, apr_uint32_t size, int sep) {
+    apr_status_t status;
     apr_uint32_t rlen;
     apr_byte_t *c;
     char *bufstr = (char *) BPTR(buf);
@@ -322,8 +323,17 @@ APR_DECLARE(apr_status_t) mangusta_buffer_extract(mangusta_buffer_t * buf, char 
         /* If the resulting string is short enough to fit into our destination */
         if (c < buf->data + buf->offset + buf->len) {
             rlen = c - (buf->data + buf->offset) + 1;
-            memset(dest + size, 0, 1);
-            return mangusta_buffer_read(buf, dest, rlen);
+            if ( rlen <= size ) {
+                memset(dest + size, 0, 1);
+                status = mangusta_buffer_read(buf, dest, rlen);
+                if ( rlen < size ) {
+                    memset(dest + rlen, 0, 1);
+                }
+            }
+            else {
+                status = APR_ERROR;
+            }
+            return status;
         }
     }
     return APR_ERROR;

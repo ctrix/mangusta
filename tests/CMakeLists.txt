@@ -8,10 +8,8 @@ INCLUDE_DIRECTORIES(
 )
 
 ADD_EXECUTABLE(test_suite test_suite.c)
-
 ADD_DEPENDENCIES(test_suite test_suite)
-
-ADD_TEST(test_suite test_suite)
+#ADD_TEST(test_suite test_suite)
 
 #ADD_TEST(test_suite_valgrind
 #	    valgrind
@@ -29,3 +27,13 @@ TARGET_LINK_LIBRARIES(
 	${CURL_LIBRARIES}
 )
 
+
+ADD_EXECUTABLE(test_http test_http.c)
+ADD_DEPENDENCIES(test_http test_http)
+ADD_TEST(test_http test_http)
+TARGET_LINK_LIBRARIES(
+    test_http
+	cmocka
+	mangusta
+	${CURL_LIBRARIES}
+)
