@@ -50,6 +50,22 @@ enum mangusta_request_method_e {
     MANGUSTA_METHOD_OTHER
 };
 
+static struct {
+    enum mangusta_request_method_e      method;
+    char                                *name;
+} mangusta_request_names[] = {
+    { MANGUSTA_METHOD_GET,      "GET" },
+    { MANGUSTA_METHOD_HEAD,     "HEAD" },
+    { MANGUSTA_METHOD_CONNECT,  "CONNECT" },
+    { MANGUSTA_METHOD_POST,     "POST" },
+    { MANGUSTA_METHOD_PUT,      "PUT" },
+    { MANGUSTA_METHOD_DELETE,   "DELETE" },
+    { MANGUSTA_METHOD_OPTIONS,  "OPTIONS" },
+    { MANGUSTA_METHOD_PROPFIND, "PROPFIND" },
+    { MANGUSTA_METHOD_MKCOL,    "MKCOL" },
+    { MANGUSTA_METHOD_OTHER,    NULL }
+};
+
 enum mangusta_payload_type_e {
     MANGUSTA_PAYLOAD_RAW,
     MANGUSTA_PAYLOAD_MULTIPART,

@@ -12,10 +12,10 @@ static apr_status_t parse_headers(mangusta_connection_t * conn) {
 
     blen = mangusta_buffer_get_char(conn->buffer_r, &bdata);
     if ( ( blen > 0 ) && (end = strnstr(bdata, HEADERS_END_MARKER, blen)) != NULL ) {
-        blen = (end + strlen(HEADERS_END_MARKER)) - bdata;
         /* Headers found, so parse them */
-        printf("**************** %s\n", bdata);
         printf("**************** Parsing headers\n");
+
+        blen = (end + strlen(HEADERS_END_MARKER)) - bdata;
 
         /* Request line */
         if ( mangusta_buffer_extract(conn->buffer_r, line, sizeof(line) - 1, '\n') == APR_SUCCESS ) {
@@ -30,15 +30,16 @@ static apr_status_t parse_headers(mangusta_connection_t * conn) {
 
         while ( mangusta_buffer_extract(conn->buffer_r, line, sizeof(line), '\n') == APR_SUCCESS ) {
             // TODO Check that the final \r\n exists
-            chomp(line, 0);
+//            chomp(line, 0);
+            if ( zstr(line) ) {
+assert(0);
+                break;
+            }
+
             printf("**************** %s<\n", line);
 
             /* Are we done parsing the header ? */
-            if ( *line == '\0' ) {
-                break;
-            }
         }
-
         return APR_SUCCESS;
     }
 
@@ -132,12 +133,6 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
             assert(num == 1);
             conn->last_io = apr_time_now();
 
-            /*
-            for (i = 0; i < num; i++) {
-		//apr_socket_t *s;
-                //s = ret_pfd[i].desc.s;
-            }
-            */
             on_read(conn);
 
             switch (conn->state) {
