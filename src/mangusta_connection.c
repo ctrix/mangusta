@@ -2,50 +2,6 @@
 
 #include "mangusta_private.h"
 
-static apr_status_t parse_headers(mangusta_connection_t * conn) {
-    apr_uint32_t blen;
-    char *bdata;
-    char *end;
-    char line[DEFAULT_BUFFER_SIZE];
-
-    assert(conn);
-
-    blen = mangusta_buffer_get_char(conn->buffer_r, &bdata);
-    if ( ( blen > 0 ) && (end = strnstr(bdata, HEADERS_END_MARKER, blen)) != NULL ) {
-        /* Headers found, so parse them */
-        printf("**************** Parsing headers\n");
-
-        blen = (end + strlen(HEADERS_END_MARKER)) - bdata;
-
-        /* Request line */
-        if ( mangusta_buffer_extract(conn->buffer_r, line, sizeof(line) - 1, '\n') == APR_SUCCESS ) {
-            // TODO Check that the final \r\n exists
-            chomp(line, 0);
-            printf("**************** %s<\n", line);
-        }
-        else {
-            /* Error extracting request line! */
-            assert(0);
-        }
-
-        while ( mangusta_buffer_extract(conn->buffer_r, line, sizeof(line), '\n') == APR_SUCCESS ) {
-            // TODO Check that the final \r\n exists
-//            chomp(line, 0);
-            if ( zstr(line) ) {
-assert(0);
-                break;
-            }
-
-            printf("**************** %s<\n", line);
-
-            /* Are we done parsing the header ? */
-        }
-        return APR_SUCCESS;
-    }
-
-    return APR_INCOMPLETE;
-}
-
 static void on_disconnect(mangusta_connection_t * conn) {
     assert(conn);
 
@@ -78,6 +34,10 @@ static void on_read(mangusta_connection_t *conn) {
 
     rv = apr_socket_recv(conn->sock, b, &tot);
     if ( rv == APR_SUCCESS ) {
+/*
+        b[tot] = '\0';
+        printf("************** %s\n", b);
+*/
         mangusta_buffer_append(conn->buffer_r, b, tot);
         return;
     }
@@ -87,6 +47,20 @@ static void on_read(mangusta_connection_t *conn) {
     }
 
     return;
+}
+
+static apr_status_t buffer_contains_headers(mangusta_connection_t * conn) {
+    apr_uint32_t blen;
+    char *bdata;
+    char *end;
+
+    assert(conn);
+
+    blen = mangusta_buffer_get_char(conn->buffer_r, &bdata);
+    if ( ( blen > 0 ) && (end = strnstr(bdata, HEADERS_END_MARKER, blen)) != NULL ) {
+        return APR_SUCCESS;
+    }
+    return APR_ERROR;
 }
 
 static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void *data) {
@@ -130,12 +104,46 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
         rv = apr_pollset_poll(conn->pollset, DEFAULT_POLL_TIMEOUT, &num, &ret_pfd);
 
         if (rv == APR_SUCCESS) {
+            mangusta_request_t *req;
+
             assert(num == 1);
             conn->last_io = apr_time_now();
 
             on_read(conn);
 
             switch (conn->state) {
+                case MANGUSTA_CONNECTION_NEW:
+                case MANGUSTA_CONNECTION_WAIT_HEADERS:
+                    if ( mangusta_request_create(conn, &req) != APR_SUCCESS) {
+                        // TODO ASD
+                    }
+                    conn->current = req;
+
+                    if ( buffer_contains_headers(conn) == APR_SUCCESS ) {
+                        if ( mangusta_request_parse_headers(req) != APR_SUCCESS ) {
+                            // TODO
+                        }
+                        else {
+                            conn->state = MANGUSTA_CONNECTION_WAIT_PAYLOAD;
+                        }
+                        if ( mangusta_request_has_payload(req) == APR_SUCCESS ) {
+                            req->state = MANGUSTA_REQUEST_PAYLOAD;
+                            //assert(0);
+                        }
+                        else {
+                            req->state = MANGUSTA_RESPONSE_HEADERS;
+                            //assert(0);
+                        }
+                    }
+
+                    break;
+                case MANGUSTA_CONNECTION_WAIT_PAYLOAD:
+                    assert(0);
+                    break;
+                case MANGUSTA_CONNECTION_WEBSOCKET:
+                    assert(0);
+                    break;
+#if 0
                 case MANGUSTA_REQUEST_INIT:
                 case MANGUSTA_REQUEST_HEADERS:
                     rv = parse_headers(conn);
@@ -159,6 +167,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                 case MANGUSTA_REQUEST_CLOSE:
                     assert(0);
                     break;
+#endif
             }
         }
         else if (
@@ -235,6 +244,8 @@ mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_sock
         c->ctx = ctx;
         c->sock = sock;
         c->pool = npool;
+
+        apr_queue_create(&c->requests, DEFAULT_REQUESTS_PER_CONNECTION_QUEUE, c->pool );
     }
 
     return c;

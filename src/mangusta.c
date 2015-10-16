@@ -131,6 +131,22 @@ APR_DECLARE(apr_status_t) mangusta_context_set_connect_cb(mangusta_ctx_t *ctx, m
     return APR_SUCCESS;
 }
 
+APR_DECLARE(apr_status_t) mangusta_context_set_request_header_cb(mangusta_ctx_t *ctx, mangusta_ctx_request_header_cb_f cb) {
+    assert(ctx);
+
+    ctx->on_request_h = cb;
+
+    return APR_SUCCESS;
+}
+
+APR_DECLARE(apr_status_t) mangusta_context_set_request_ready_cb(mangusta_ctx_t *ctx, mangusta_ctx_request_ready_cb_f cb) {
+    assert(ctx);
+
+    ctx->on_request_r = cb;
+
+    return APR_SUCCESS;
+}
+
 static void *on_client_connect(apr_thread_t *thread, void *data) {
     mangusta_ctx_t *ctx = data;
     mangusta_connection_t *conn;
