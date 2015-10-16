@@ -61,19 +61,20 @@ enum mangusta_request_method_e {
 };
 
 static struct {
-    enum mangusta_request_method_e      method;
-    char                                *name;
+    enum mangusta_request_method_e method;
+    char *name;
 } mangusta_request_names[] = {
-    { MANGUSTA_METHOD_GET,      "GET" },
-    { MANGUSTA_METHOD_HEAD,     "HEAD" },
-    { MANGUSTA_METHOD_CONNECT,  "CONNECT" },
-    { MANGUSTA_METHOD_POST,     "POST" },
-    { MANGUSTA_METHOD_PUT,      "PUT" },
-    { MANGUSTA_METHOD_DELETE,   "DELETE" },
-    { MANGUSTA_METHOD_OPTIONS,  "OPTIONS" },
-    { MANGUSTA_METHOD_PROPFIND, "PROPFIND" },
-    { MANGUSTA_METHOD_MKCOL,    "MKCOL" },
-    { MANGUSTA_METHOD_OTHER,    NULL }
+    {
+    MANGUSTA_METHOD_GET, "GET"}, {
+    MANGUSTA_METHOD_HEAD, "HEAD"}, {
+    MANGUSTA_METHOD_CONNECT, "CONNECT"}, {
+    MANGUSTA_METHOD_POST, "POST"}, {
+    MANGUSTA_METHOD_PUT, "PUT"}, {
+    MANGUSTA_METHOD_DELETE, "DELETE"}, {
+    MANGUSTA_METHOD_OPTIONS, "OPTIONS"}, {
+    MANGUSTA_METHOD_PROPFIND, "PROPFIND"}, {
+    MANGUSTA_METHOD_MKCOL, "MKCOL"}, {
+    MANGUSTA_METHOD_OTHER, NULL}
 };
 
 enum mangusta_payload_type_e {
@@ -86,71 +87,69 @@ enum mangusta_payload_type_e {
 //struct mangusta_http_responses
 
 struct mangusta_ctx_s {
-    const char                          *host;
-    int	                                port;
-    apr_size_t                          maxconn;
-    apr_size_t                          maxidle;
-    mangusta_ctx_connect_cb_f           on_connect;
-    mangusta_ctx_request_header_cb_f    on_request_h;
-    mangusta_ctx_request_ready_cb_f     on_request_r;
-    char                                buffer[DEFAULT_BUFFER_SIZE];
-    apr_size_t                          buffer_len;
+    const char *host;
+    int port;
+    apr_size_t maxconn;
+    apr_size_t maxidle;
+    mangusta_ctx_connect_cb_f on_connect;
+    mangusta_ctx_request_header_cb_f on_request_h;
+    mangusta_ctx_request_ready_cb_f on_request_r;
+    char buffer[DEFAULT_BUFFER_SIZE];
+    apr_size_t buffer_len;
 
     /* RUNTIME VALUES */
-    apr_pool_t                          *pool;
-    apr_socket_t                        *sock;
-    apr_pollset_t                       *pollset;
-    apr_thread_pool_t                   *tp;
-    apr_thread_t                        *thread;
-    apr_bool_t                          stopped;
+    apr_pool_t *pool;
+    apr_socket_t *sock;
+    apr_pollset_t *pollset;
+    apr_thread_pool_t *tp;
+    apr_thread_t *thread;
+    apr_bool_t stopped;
 };
 
 struct mangusta_connection_s {
-    mangusta_ctx_t                      *ctx;
-    apr_pool_t                          *pool;
-    apr_socket_t                        *sock;
-    apr_pollset_t                       *pollset;
-    char                                *method_string;
-    char                                *url;
-    apr_hash_t                          *headers;
-    apr_uint32_t                        request_count;
-    apr_queue_t                         *requests;
-    mangusta_request_t                  *current;
+    mangusta_ctx_t *ctx;
+    apr_pool_t *pool;
+    apr_socket_t *sock;
+    apr_pollset_t *pollset;
+    char *method_string;
+    char *url;
+    apr_hash_t *headers;
+    apr_uint32_t request_count;
+    apr_queue_t *requests;
+    mangusta_request_t *current;
 
-    enum mangusta_read_state_e          state;
-    short                               terminated;
-    apr_pollfd_t                        pfd;
-    apr_time_t                          last_io;
-    mangusta_buffer_t                   *buffer_r;
-    short                               must_close;
+    enum mangusta_read_state_e state;
+    short terminated;
+    apr_pollfd_t pfd;
+    apr_time_t last_io;
+    mangusta_buffer_t *buffer_r;
+    short must_close;
 };
 
 struct mangusta_request_s {
-    mangusta_connection_t               *conn;
-    apr_pool_t                          *pool;
-    enum mangusta_request_state_e       state;
+    mangusta_connection_t *conn;
+    apr_pool_t *pool;
+    enum mangusta_request_state_e state;
 
-    char                                *c_method;
-    enum mangusta_request_method_e      method;
-    char                                *url;
-    char                                *c_http_version;
-    enum mangusta_http_version_e        http_version;
+    char *c_method;
+    enum mangusta_request_method_e method;
+    char *url;
+    char *c_http_version;
+    enum mangusta_http_version_e http_version;
 
-    apr_hash_t                          *headers;
+    apr_hash_t *headers;
 };
 
 mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock);
 void mangusta_connection_destroy(mangusta_connection_t * conn);
 apr_status_t mangusta_connection_play(mangusta_connection_t * conn);
 
-apr_status_t mangusta_request_create(mangusta_connection_t *conn, mangusta_request_t **req);
-apr_status_t mangusta_request_parse_headers(mangusta_request_t *req);
-apr_status_t mangusta_request_has_payload(mangusta_request_t *req);
-
+apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_request_t ** req);
+apr_status_t mangusta_request_parse_headers(mangusta_request_t * req);
+apr_status_t mangusta_request_has_payload(mangusta_request_t * req);
 
 #ifndef strnstr
 char *strnstr(const char *haystack, const char *needle, size_t len);
 #endif
 
 apr_status_t chomp(char *buffer, size_t length);
-

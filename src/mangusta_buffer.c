@@ -36,7 +36,7 @@ struct mangusta_buffer_s {
 /* ************************************************************************* */
 /* ************************************************************************* */
 
-static void * apr_pool_resize(apr_pool_t * pool, void *old_addr, const unsigned long old_byte_size, const unsigned long new_byte_size) {
+static void *apr_pool_resize(apr_pool_t * pool, void *old_addr, const unsigned long old_byte_size, const unsigned long new_byte_size) {
     void *new;
 
     /* If the size is shrinking, then ignore ... */
@@ -52,7 +52,6 @@ static void * apr_pool_resize(apr_pool_t * pool, void *old_addr, const unsigned 
         return NULL;
     }
 }
-
 
 static apr_uint32_t buf_forward_capacity(mangusta_buffer_t * buf) {
     int ret = buf->capacity - (buf->offset + buf->len);
@@ -319,18 +318,17 @@ APR_DECLARE(apr_status_t) mangusta_buffer_extract(mangusta_buffer_t * buf, char 
 
     /* If we have the separator */
     //if ((c = (apr_byte_t *) strchr(bufstr, sep)) != NULL) {
-    if ((c = (apr_byte_t *) memchr(bufstr, sep, BLEN(buf) )) != NULL) {
+    if ((c = (apr_byte_t *) memchr(bufstr, sep, BLEN(buf))) != NULL) {
         /* If the resulting string is short enough to fit into our destination */
         if (c < buf->data + buf->offset + buf->len) {
             rlen = c - (buf->data + buf->offset) + 1;
-            if ( rlen <= size ) {
+            if (rlen <= size) {
                 memset(dest + size, 0, 1);
                 status = mangusta_buffer_read(buf, dest, rlen);
-                if ( rlen < size ) {
+                if (rlen < size) {
                     memset(dest + rlen, 0, 1);
                 }
-            }
-            else {
+            } else {
                 status = APR_ERROR;
             }
             return status;

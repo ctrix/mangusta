@@ -13,20 +13,19 @@ static void curl_get(char *url) {
     CURLcode res;
 
     curl = curl_easy_init();
-    if ( curl != NULL ) {
+    if (curl != NULL) {
         curl_easy_setopt(curl, CURLOPT_URL, url);
         res = curl_easy_perform(curl);
 
-        if( CURLE_OK == res ) {
+        if (CURLE_OK == res) {
             char *ct;
             /* ask for the content-type */
             res = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ct);
 
-            if( (CURLE_OK == res) && ct ) {
+            if ((CURLE_OK == res) && ct) {
                 printf("We received Content-Type: %s\n", ct);
             }
-        }
-        else {
+        } else {
             //printf("CURL received an error\n");
         }
 
@@ -40,11 +39,11 @@ static void curl_get(char *url) {
 #include "test_suite_connection.c"
 
 int main(void) {
-  const struct CMUnitTest tests[] = {
-    cmocka_unit_test(test_library_initialization),
-    cmocka_unit_test(test_context_setup),
-    cmocka_unit_test(test_connection)
-  };
+    const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_library_initialization),
+        cmocka_unit_test(test_context_setup),
+        cmocka_unit_test(test_connection)
+    };
 
-  return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests(tests, NULL, NULL);
 }

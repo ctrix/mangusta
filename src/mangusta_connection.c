@@ -25,7 +25,7 @@ static void on_disconnect(mangusta_connection_t * conn) {
     return;
 }
 
-static void on_read(mangusta_connection_t *conn) {
+static void on_read(mangusta_connection_t * conn) {
     apr_size_t tot;
     apr_status_t rv;
     char b[1024];
@@ -33,7 +33,7 @@ static void on_read(mangusta_connection_t *conn) {
     tot = sizeof(b) - 2;
 
     rv = apr_socket_recv(conn->sock, b, &tot);
-    if ( rv == APR_SUCCESS ) {
+    if (rv == APR_SUCCESS) {
 /*
         b[tot] = '\0';
         printf("************** %s\n", b);
@@ -57,7 +57,7 @@ static apr_status_t buffer_contains_headers(mangusta_connection_t * conn) {
     assert(conn);
 
     blen = mangusta_buffer_get_char(conn->buffer_r, &bdata);
-    if ( ( blen > 0 ) && (end = strnstr(bdata, HEADERS_END_MARKER, blen)) != NULL ) {
+    if ((blen > 0) && (end = strnstr(bdata, HEADERS_END_MARKER, blen)) != NULL) {
         return APR_SUCCESS;
     }
     return APR_ERROR;
@@ -80,7 +80,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 #endif
 
     rv = apr_pollset_create(&conn->pollset, DEFAULT_POLLSET_NUM, conn->pool, APR_POLLSET_WAKEABLE);
-    assert( rv == APR_SUCCESS );
+    assert(rv == APR_SUCCESS);
 
     conn->pfd.p = conn->pool;
     conn->pfd.desc_type = APR_POLL_SOCKET;
@@ -114,23 +114,21 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
             switch (conn->state) {
                 case MANGUSTA_CONNECTION_NEW:
                 case MANGUSTA_CONNECTION_WAIT_HEADERS:
-                    if ( mangusta_request_create(conn, &req) != APR_SUCCESS) {
+                    if (mangusta_request_create(conn, &req) != APR_SUCCESS) {
                         // TODO ASD
                     }
                     conn->current = req;
 
-                    if ( buffer_contains_headers(conn) == APR_SUCCESS ) {
-                        if ( mangusta_request_parse_headers(req) != APR_SUCCESS ) {
+                    if (buffer_contains_headers(conn) == APR_SUCCESS) {
+                        if (mangusta_request_parse_headers(req) != APR_SUCCESS) {
                             // TODO
-                        }
-                        else {
+                        } else {
                             conn->state = MANGUSTA_CONNECTION_WAIT_PAYLOAD;
                         }
-                        if ( mangusta_request_has_payload(req) == APR_SUCCESS ) {
+                        if (mangusta_request_has_payload(req) == APR_SUCCESS) {
                             req->state = MANGUSTA_REQUEST_PAYLOAD;
                             //assert(0);
-                        }
-                        else {
+                        } else {
                             req->state = MANGUSTA_RESPONSE_HEADERS;
                             //assert(0);
                         }
@@ -147,13 +145,11 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                 case MANGUSTA_REQUEST_INIT:
                 case MANGUSTA_REQUEST_HEADERS:
                     rv = parse_headers(conn);
-                    if ( rv == APR_SUCCESS ) {
+                    if (rv == APR_SUCCESS) {
                         conn->state = MANGUSTA_REQUEST_PAYLOAD;
-                    }
-                    else if (rv == APR_INCOMPLETE ) {
+                    } else if (rv == APR_INCOMPLETE) {
                         /* just wait the next loop */
-                    }
-                    else {
+                    } else {
                         /* An error was received or bad data were parsed */
                         assert(0);
                     }
@@ -169,33 +165,27 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                     break;
 #endif
             }
-        }
-        else if (
-            (rv == APR_TIMEUP) ||
-            (rv == APR_EOF) ||
-            (rv == APR_EINTR)
+        } else if ((rv == APR_TIMEUP) || (rv == APR_EOF) || (rv == APR_EINTR)
             ) {
             /* Not such a bug problem TODO Close connection after too much time */
+        } else {
+            printf("************** %d\n", rv);
+            assert(0);
+            conn->terminated = 1;
+            apr_socket_close(conn->sock);
         }
-	else {
-                printf("************** %d\n", rv);
-assert(0);
-	    conn->terminated = 1;
-	    apr_socket_close(conn->sock);
-	}
 
-
-	/*
-        if (rv == APR_TIMEUP) {
-                printf("************** TIMEOUT %d\n", rv);
-        }
-        else if (rv == APR_EOF) {
-                printf("************** EOF %d\n", rv);
-        }
-        else if (rv == APR_EINTR) {
-                printf("************** EINTR %d\n", rv);
-        }
-	*/
+        /*
+           if (rv == APR_TIMEUP) {
+           printf("************** TIMEOUT %d\n", rv);
+           }
+           else if (rv == APR_EOF) {
+           printf("************** EOF %d\n", rv);
+           }
+           else if (rv == APR_EINTR) {
+           printf("************** EINTR %d\n", rv);
+           }
+         */
 
     }
 
@@ -207,8 +197,7 @@ assert(0);
     return NULL;
 }
 
-
-apr_status_t mangusta_connection_play(mangusta_connection_t *conn) {
+apr_status_t mangusta_connection_play(mangusta_connection_t * conn) {
     apr_thread_t *thread;
     apr_threadattr_t *thd_attr;
 
@@ -237,7 +226,7 @@ mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_sock
     apr_pool_t *npool;
 
     //assert( apr_pool_create(&npool, pool) == APR_SUCCESS);
-    assert( apr_pool_create_core(&npool) == APR_SUCCESS);
+    assert(apr_pool_create_core(&npool) == APR_SUCCESS);
 
     c = apr_pcalloc(npool, sizeof(mangusta_connection_t));
     if (c != NULL) {
@@ -245,7 +234,7 @@ mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_sock
         c->sock = sock;
         c->pool = npool;
 
-        apr_queue_create(&c->requests, DEFAULT_REQUESTS_PER_CONNECTION_QUEUE, c->pool );
+        apr_queue_create(&c->requests, DEFAULT_REQUESTS_PER_CONNECTION_QUEUE, c->pool);
     }
 
     return c;

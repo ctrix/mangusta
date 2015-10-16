@@ -16,73 +16,72 @@ APR_DECLARE(apr_status_t) mangusta_shutdown(void) {
     return APR_SUCCESS;
 }
 
-
-
 APR_DECLARE(mangusta_ctx_t *) mangusta_context_new(void) {
     mangusta_ctx_t *ctx = NULL;
     apr_pool_t *pool;
 
-    if ( apr_pool_create_core(&pool) == APR_SUCCESS ) {
-	assert(pool);
+    if (apr_pool_create_core(&pool) == APR_SUCCESS) {
+        assert(pool);
 
-	ctx = apr_pcalloc(pool, sizeof(mangusta_ctx_t) );
-	if ( ctx != NULL ) {
-	    ctx->pool = pool;
-	}
+        ctx = apr_pcalloc(pool, sizeof(mangusta_ctx_t));
+        if (ctx != NULL) {
+            ctx->pool = pool;
+        }
     }
 
     return ctx;
 }
 
-APR_DECLARE(apr_pool_t *) mangusta_context_get_pool(mangusta_ctx_t *ctx) {
-    if ( ctx != NULL ) {
-	return ctx->pool;
+APR_DECLARE(apr_pool_t *) mangusta_context_get_pool(mangusta_ctx_t * ctx) {
+    if (ctx != NULL) {
+        return ctx->pool;
     }
 
     return NULL;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_set_host(mangusta_ctx_t *ctx, const char *host) {
+APR_DECLARE(apr_status_t) mangusta_context_set_host(mangusta_ctx_t * ctx, const char *host) {
     assert(ctx && ctx->pool);
 
-    if ( !zstr(host) ) {
-	ctx->host = apr_pstrdup(ctx->pool, host);
-	return APR_SUCCESS;
+    if (!zstr(host)) {
+        ctx->host = apr_pstrdup(ctx->pool, host);
+        return APR_SUCCESS;
     }
 
     return APR_ERROR;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_set_port(mangusta_ctx_t *ctx, int port) {
+APR_DECLARE(apr_status_t) mangusta_context_set_port(mangusta_ctx_t * ctx, int port) {
     assert(ctx && ctx->pool);
 
-    if ( port > 0 ) {
-	ctx->port = port;
-	return APR_SUCCESS;
+    if (port > 0) {
+        ctx->port = port;
+        return APR_SUCCESS;
     }
 
     return APR_ERROR;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_set_max_connections(mangusta_ctx_t *ctx, apr_size_t max) {
+APR_DECLARE(apr_status_t) mangusta_context_set_max_connections(mangusta_ctx_t * ctx, apr_size_t max) {
     assert(ctx && ctx->pool);
 
     ctx->maxconn = max;
     return APR_SUCCESS;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_set_max_idle(mangusta_ctx_t *ctx, apr_size_t max) {
+APR_DECLARE(apr_status_t) mangusta_context_set_max_idle(mangusta_ctx_t * ctx, apr_size_t max) {
     assert(ctx && ctx->pool);
 
     ctx->maxidle = max;
     return APR_SUCCESS;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_start(mangusta_ctx_t *ctx) {
+APR_DECLARE(apr_status_t) mangusta_context_start(mangusta_ctx_t * ctx) {
     apr_status_t status;
     apr_sockaddr_t *sa;
     apr_socket_t *sock;
-    apr_pollfd_t pfd = { ctx->pool, APR_POLL_SOCKET, APR_POLLIN, 0, {NULL} , NULL };
+    apr_pollfd_t pfd = { ctx->pool, APR_POLL_SOCKET, APR_POLLIN, 0, {NULL}
+    , NULL };
 
     assert(ctx);
 
@@ -103,12 +102,12 @@ APR_DECLARE(apr_status_t) mangusta_context_start(mangusta_ctx_t *ctx) {
     status = apr_pollset_create(&ctx->pollset, DEFAULT_POLLSET_NUM, ctx->pool, APR_POLLSET_THREADSAFE);
     assert(status == APR_SUCCESS);
 #ifdef apr_pollset_method_name
-        /*
-           Older APR versions may not have this function.
-           It's easier to conditionally remove this log line
-           without testing for the correct APR version.
-         */
-        //nn_log(NN_LOG_DEBUG, "Profile '%s' using pollset method '%s'", name, apr_pollset_method_name(p->pollset)); // TODO
+    /*
+       Older APR versions may not have this function.
+       It's easier to conditionally remove this log line
+       without testing for the correct APR version.
+     */
+    //nn_log(NN_LOG_DEBUG, "Profile '%s' using pollset method '%s'", name, apr_pollset_method_name(p->pollset)); // TODO
 #endif
 
     pfd.client_data = NULL;
@@ -123,7 +122,7 @@ APR_DECLARE(apr_status_t) mangusta_context_start(mangusta_ctx_t *ctx) {
     return APR_SUCCESS;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_set_connect_cb(mangusta_ctx_t *ctx, mangusta_ctx_connect_cb_f cb) {
+APR_DECLARE(apr_status_t) mangusta_context_set_connect_cb(mangusta_ctx_t * ctx, mangusta_ctx_connect_cb_f cb) {
     assert(ctx);
 
     ctx->on_connect = cb;
@@ -131,7 +130,7 @@ APR_DECLARE(apr_status_t) mangusta_context_set_connect_cb(mangusta_ctx_t *ctx, m
     return APR_SUCCESS;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_set_request_header_cb(mangusta_ctx_t *ctx, mangusta_ctx_request_header_cb_f cb) {
+APR_DECLARE(apr_status_t) mangusta_context_set_request_header_cb(mangusta_ctx_t * ctx, mangusta_ctx_request_header_cb_f cb) {
     assert(ctx);
 
     ctx->on_request_h = cb;
@@ -139,7 +138,7 @@ APR_DECLARE(apr_status_t) mangusta_context_set_request_header_cb(mangusta_ctx_t 
     return APR_SUCCESS;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_set_request_ready_cb(mangusta_ctx_t *ctx, mangusta_ctx_request_ready_cb_f cb) {
+APR_DECLARE(apr_status_t) mangusta_context_set_request_ready_cb(mangusta_ctx_t * ctx, mangusta_ctx_request_ready_cb_f cb) {
     assert(ctx);
 
     ctx->on_request_r = cb;
@@ -147,7 +146,7 @@ APR_DECLARE(apr_status_t) mangusta_context_set_request_ready_cb(mangusta_ctx_t *
     return APR_SUCCESS;
 }
 
-static void *on_client_connect(apr_thread_t *thread, void *data) {
+static void *on_client_connect(apr_thread_t * thread, void *data) {
     mangusta_ctx_t *ctx = data;
     mangusta_connection_t *conn;
     apr_pool_t *pool = NULL;
@@ -168,12 +167,12 @@ static void *on_client_connect(apr_thread_t *thread, void *data) {
             conn = mangusta_connection_create(ctx, new_sock);
             if (conn != NULL) {
 
-                if ( ctx->on_connect != NULL ) {
+                if (ctx->on_connect != NULL) {
                     rv = ctx->on_connect(ctx, new_sock, pool);
                     // TODO IF FAIL SET LINGER TO ZERO SO THAT THE SOCKET, ON SOME TCP STACK, CAN SEND A RST
                 }
 
-                if ( (rv != APR_SUCCESS) || (mangusta_connection_play(conn) != APR_SUCCESS) ) {
+                if ((rv != APR_SUCCESS) || (mangusta_connection_play(conn) != APR_SUCCESS)) {
                     mangusta_connection_destroy(conn);
                 }
             } else {
@@ -188,7 +187,7 @@ static void *on_client_connect(apr_thread_t *thread, void *data) {
     return NULL;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_wait(mangusta_ctx_t *ctx) {
+APR_DECLARE(apr_status_t) mangusta_context_wait(mangusta_ctx_t * ctx) {
     apr_status_t status;
     apr_int32_t num;
     const apr_pollfd_t *ret_pfd = NULL;
@@ -213,10 +212,10 @@ APR_DECLARE(apr_status_t) mangusta_context_wait(mangusta_ctx_t *ctx) {
     return status;
 }
 
-static void* APR_THREAD_FUNC mangusta_ctx_loop(apr_thread_t *thd, void *data) {
+static void *APR_THREAD_FUNC mangusta_ctx_loop(apr_thread_t * thd, void *data) {
     mangusta_ctx_t *ctx = data;
 
-    while ( !ctx->stopped ) {
+    while (!ctx->stopped) {
         mangusta_context_wait(ctx);
     }
 
@@ -225,7 +224,7 @@ static void* APR_THREAD_FUNC mangusta_ctx_loop(apr_thread_t *thd, void *data) {
     return NULL;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_background(mangusta_ctx_t *ctx) {
+APR_DECLARE(apr_status_t) mangusta_context_background(mangusta_ctx_t * ctx) {
     apr_threadattr_t *th_attr = NULL;
     apr_status_t status;
 
@@ -243,16 +242,16 @@ APR_DECLARE(apr_status_t) mangusta_context_background(mangusta_ctx_t *ctx) {
     return status;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_running(mangusta_ctx_t *ctx) {
+APR_DECLARE(apr_status_t) mangusta_context_running(mangusta_ctx_t * ctx) {
 
-    if ( ctx->stopped != 0 ) {
+    if (ctx->stopped != 0) {
         return APR_ERROR;
     }
 
     return APR_SUCCESS;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_stop(mangusta_ctx_t *ctx) {
+APR_DECLARE(apr_status_t) mangusta_context_stop(mangusta_ctx_t * ctx) {
     assert(ctx);
 
     ctx->stopped = 1;
@@ -260,12 +259,12 @@ APR_DECLARE(apr_status_t) mangusta_context_stop(mangusta_ctx_t *ctx) {
     return apr_socket_close(ctx->sock);
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_free(mangusta_ctx_t *ctx) {
+APR_DECLARE(apr_status_t) mangusta_context_free(mangusta_ctx_t * ctx) {
     apr_status_t status = APR_SUCCESS;
     apr_pool_t *pool;
     assert(ctx);
 
-    if ( ctx->thread != NULL ) {
+    if (ctx->thread != NULL) {
         apr_thread_join(&status, ctx->thread);
     }
 

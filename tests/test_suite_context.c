@@ -13,18 +13,18 @@ void test_context_setup(void) {
     pool = mangusta_context_get_pool(ctx);
     assert_non_null(pool);
 
-    assert_int_not_equal(       mangusta_context_set_host(ctx, NULL), APR_SUCCESS);
-    assert_int_equal(           mangusta_context_set_host(ctx, "127.0.0.1"), APR_SUCCESS);
-    assert_int_not_equal(       mangusta_context_set_port(ctx, -1), APR_SUCCESS);
-    assert_int_equal(           mangusta_context_set_port(ctx, 8090), APR_SUCCESS);
-    assert_int_equal(           mangusta_context_set_max_connections(ctx, 1024), APR_SUCCESS);
-    assert_int_equal(           mangusta_context_set_max_idle(ctx, 1024), APR_SUCCESS);
+    assert_int_not_equal(mangusta_context_set_host(ctx, NULL), APR_SUCCESS);
+    assert_int_equal(mangusta_context_set_host(ctx, "127.0.0.1"), APR_SUCCESS);
+    assert_int_not_equal(mangusta_context_set_port(ctx, -1), APR_SUCCESS);
+    assert_int_equal(mangusta_context_set_port(ctx, 8090), APR_SUCCESS);
+    assert_int_equal(mangusta_context_set_max_connections(ctx, 1024), APR_SUCCESS);
+    assert_int_equal(mangusta_context_set_max_idle(ctx, 1024), APR_SUCCESS);
 
-    assert_int_equal(           mangusta_context_start(ctx), APR_SUCCESS);
+    assert_int_equal(mangusta_context_start(ctx), APR_SUCCESS);
 //    assert_int_equal(           mangusta_context_background(ctx), APR_SUCCESS);
-    assert_int_equal(           mangusta_context_stop(ctx), APR_SUCCESS);
+    assert_int_equal(mangusta_context_stop(ctx), APR_SUCCESS);
 
-    assert_int_equal(           mangusta_context_free(ctx), APR_SUCCESS);
+    assert_int_equal(mangusta_context_free(ctx), APR_SUCCESS);
 
     mangusta_shutdown();
 

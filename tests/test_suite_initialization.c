@@ -8,4 +8,3 @@ void test_library_initialization(void) {
 
     return;
 }
-
