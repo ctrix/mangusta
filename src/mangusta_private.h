@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <ctype.h>
+#include "stdarg.h"
 
 #include "mangusta.h"
 #include "mangusta_buffer.h"
@@ -11,6 +12,8 @@
 #include "apr_hash.h"
 #include "apr_queue.h"
 #include "apr_thread_pool.h"
+
+#define MANGUSTA_DEBUG 9
 
 #define zstr(x)  ( ((x==NULL) || (*x == '\0')) ? 1 : 0)
 
@@ -25,14 +28,14 @@
 #define DEFAULT_REQUESTS_PER_CONNECTION_QUEUE 20
 
 enum mangusta_read_state_e {
-    MANGUSTA_CONNECTION_NEW,
-    MANGUSTA_CONNECTION_WAIT_HEADERS,
-    MANGUSTA_CONNECTION_WAIT_PAYLOAD,
+    MANGUSTA_CONNECTION_NEW = 1,
+    MANGUSTA_CONNECTION_REQUEST,
+    MANGUSTA_CONNECTION_RESPONSE,
     MANGUSTA_CONNECTION_WEBSOCKET
 };
 
 enum mangusta_request_state_e {
-    MANGUSTA_REQUEST_INIT,
+    MANGUSTA_REQUEST_INIT = 1,
     MANGUSTA_REQUEST_HEADERS,
     MANGUSTA_REQUEST_PAYLOAD,
     MANGUSTA_RESPONSE_HEADERS,
@@ -145,11 +148,28 @@ void mangusta_connection_destroy(mangusta_connection_t * conn);
 apr_status_t mangusta_connection_play(mangusta_connection_t * conn);
 
 apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_request_t ** req);
+apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangusta_request_state_e newstate);
 apr_status_t mangusta_request_parse_headers(mangusta_request_t * req);
 apr_status_t mangusta_request_has_payload(mangusta_request_t * req);
+apr_status_t mangusta_request_header_set(mangusta_request_t * req, const char *name, const char *value);
 
 #ifndef strnstr
 char *strnstr(const char *haystack, const char *needle, size_t len);
 #endif
 
 apr_status_t chomp(char *buffer, size_t length);
+
+typedef enum {
+    MANGUSTA_LOG_VERBOSE = 0,
+    MANGUSTA_LOG_CRIT = 1,
+    MANGUSTA_LOG_ERROR = 2,
+    MANGUSTA_LOG_WARNING = 3,
+    MANGUSTA_LOG_NOTICE = 4,
+    MANGUSTA_LOG_DEBUG = 5
+} mangusta_log_types;
+
+typedef apr_status_t mangusta_log_func_t(mangusta_log_types level, const char *fmt, va_list argp);
+
+APR_DECLARE(void) mangusta_log_set_function(mangusta_log_func_t * func);
+APR_DECLARE(void) mangusta_log(mangusta_log_types level, const char *fmt, ...) __attribute__ ((format(printf, 2, 3)));
+APR_DECLARE(const char *) mangusta_log_level_string(mangusta_log_types level);

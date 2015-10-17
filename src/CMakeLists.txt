@@ -15,6 +15,7 @@ SET(MANGUSTA_SOURCES
     mangusta_buffer.c
     mangusta_connection.c
     mangusta_request.c
+    mangusta_log.c
     mangusta_utils.c
 )
 

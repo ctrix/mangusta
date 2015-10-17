@@ -1,4 +1,17 @@
 
+static apr_status_t on_request_headers(mangusta_ctx_t * ctx, mangusta_request_t * req) {
+    char *host = mangusta_request_header_get(req, "host");
+    printf("** %s - Host: %s\n", __FUNCTION__, host);
+    //assert(0);
+    return APR_ERROR;
+}
+
+static apr_status_t on_request_ready(mangusta_ctx_t * ctx, mangusta_request_t * req) {
+    printf("** %s\n", __FUNCTION__);
+    //assert(0);
+    return APR_ERROR;
+}
+
 static void curl_get_method(char *url, const char *method) {
     CURL *curl;
     CURLcode res;
@@ -43,6 +56,9 @@ void *test_http_methods(void **foo) {
     assert_int_equal(mangusta_context_set_port(ctx, 8090), APR_SUCCESS);
     assert_int_equal(mangusta_context_set_max_connections(ctx, 1024), APR_SUCCESS);
     assert_int_equal(mangusta_context_set_max_idle(ctx, 1024), APR_SUCCESS);
+
+    assert_int_equal(mangusta_context_set_request_header_cb(ctx, on_request_headers), APR_SUCCESS);
+    assert_int_equal(mangusta_context_set_request_ready_cb(ctx, on_request_ready), APR_SUCCESS);
 
     assert_int_equal(mangusta_context_start(ctx), APR_SUCCESS);
 

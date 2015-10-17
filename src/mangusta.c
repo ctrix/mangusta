@@ -81,7 +81,8 @@ APR_DECLARE(apr_status_t) mangusta_context_start(mangusta_ctx_t * ctx) {
     apr_sockaddr_t *sa;
     apr_socket_t *sock;
     apr_pollfd_t pfd = { ctx->pool, APR_POLL_SOCKET, APR_POLLIN, 0, {NULL}
-    , NULL };
+    , NULL
+    };
 
     assert(ctx);
 

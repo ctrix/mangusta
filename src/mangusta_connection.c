@@ -5,8 +5,8 @@
 static void on_disconnect(mangusta_connection_t * conn) {
     assert(conn);
 
-#if DEBUG_CONNECTION > 5
-    nn_log(NN_LOG_DEBUG, "On client Disconnect");
+#if MANGUSTA_DEBUG > 5
+    mangusta_log(MANGUSTA_LOG_DEBUG, "On client Disconnect");
 #endif
 
     conn->terminated = 1;
@@ -14,8 +14,8 @@ static void on_disconnect(mangusta_connection_t * conn) {
     if (conn->sock) {
         apr_pollset_remove(conn->pollset, &conn->pfd);
         while (apr_socket_close(conn->sock) != APR_SUCCESS) {
-#if DEBUG_CONNECTION >= 1
-            nn_log(NN_LOG_DEBUG, "Closing client side socket");
+#if MANGUSTA_DEBUG >= 1
+            mangusta_log(MANGUSTA_LOG_DEBUG, "Closing client side socket");
 #endif
             apr_sleep(APR_USEC_PER_SEC / 10);
         };
@@ -34,6 +34,7 @@ static void on_read(mangusta_connection_t * conn) {
 
     rv = apr_socket_recv(conn->sock, b, &tot);
     if (rv == APR_SUCCESS) {
+        mangusta_log(MANGUSTA_LOG_DEBUG, "[Read %zu bytes]", tot);
 /*
         b[tot] = '\0';
         printf("************** %s\n", b);
@@ -68,6 +69,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
     apr_status_t rv;
     apr_sockaddr_t *sa = NULL;
     mangusta_connection_t *conn;
+    mangusta_request_t *req = NULL;
 
     assert(data);
     conn = (mangusta_connection_t *) data;
@@ -75,7 +77,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
     apr_socket_addr_get(&sa, APR_REMOTE, conn->sock);
     apr_sockaddr_ip_get(&ip, sa);
 
-#if DEBUG_CONNECTION >= 1
+#if MANGUSTA_DEBUG >= 1
     printf("New connection from IP: %s PORT: %d\n", ip, sa->port);
 #endif
 
@@ -103,71 +105,75 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 
         rv = apr_pollset_poll(conn->pollset, DEFAULT_POLL_TIMEOUT, &num, &ret_pfd);
 
-        if (rv == APR_SUCCESS) {
-            mangusta_request_t *req;
+        if ((rv == APR_SUCCESS) || (rv == APR_TIMEUP)) {
 
-            assert(num == 1);
+            assert(num <= 1);
             conn->last_io = apr_time_now();
 
-            on_read(conn);
+            /* Read only when at least one poll descriptor is ready */
+            if (num > 0) {
+                on_read(conn);
+            }
 
             switch (conn->state) {
                 case MANGUSTA_CONNECTION_NEW:
-                case MANGUSTA_CONNECTION_WAIT_HEADERS:
-                    if (mangusta_request_create(conn, &req) != APR_SUCCESS) {
-                        // TODO ASD
-                    }
-                    conn->current = req;
+                case MANGUSTA_CONNECTION_REQUEST:
 
-                    if (buffer_contains_headers(conn) == APR_SUCCESS) {
+                    if (conn->current == NULL) {
+                        mangusta_log(MANGUSTA_LOG_DEBUG, "Creating connection");
+                        if (mangusta_request_create(conn, &req) == APR_SUCCESS) {
+                            // TODO ASD
+                            conn->current = req;
+                        }
+                    }
+
+                    if ((conn->current->state == MANGUSTA_REQUEST_HEADERS) && buffer_contains_headers(conn) == APR_SUCCESS) {
+                        mangusta_log(MANGUSTA_LOG_DEBUG, "Read buffer contains headers");
                         if (mangusta_request_parse_headers(req) != APR_SUCCESS) {
                             // TODO
+                            assert(0);
                         } else {
-                            conn->state = MANGUSTA_CONNECTION_WAIT_PAYLOAD;
+                            if (conn->ctx->on_request_h != NULL) {
+                                conn->ctx->on_request_h(conn->ctx, req);
+                            }
                         }
-                        if (mangusta_request_has_payload(req) == APR_SUCCESS) {
-                            req->state = MANGUSTA_REQUEST_PAYLOAD;
-                            //assert(0);
-                        } else {
-                            req->state = MANGUSTA_RESPONSE_HEADERS;
-                            //assert(0);
-                        }
-                    }
 
+                        if (mangusta_request_has_payload(req) == APR_SUCCESS) {
+                            mangusta_log(MANGUSTA_LOG_DEBUG, "Mangusta request contains payload");
+                            assert(mangusta_request_state_change(req, MANGUSTA_REQUEST_PAYLOAD) == APR_SUCCESS);
+                            //assert(0);
+                        } else {
+                            mangusta_log(MANGUSTA_LOG_DEBUG, "Mangusta request without payload");
+                            assert(mangusta_request_state_change(req, MANGUSTA_RESPONSE_HEADERS) == APR_SUCCESS);
+                            conn->state = MANGUSTA_CONNECTION_RESPONSE;
+                            //assert(0);
+                        }
+                    } else if (conn->current->state == MANGUSTA_REQUEST_PAYLOAD) {
+                        // TODO ASD
+                    }
                     break;
-                case MANGUSTA_CONNECTION_WAIT_PAYLOAD:
-                    assert(0);
+                case MANGUSTA_CONNECTION_RESPONSE:
+                    /*
+                       Here the application should wait for a response to be sent
+                       The control is passed to the user-defined function where the user of
+                       the library sets up the headers and the eventual payload of the response.
+
+                       If no callback is set, then the default is to reply with a 500 Internal Server Error
+                     */
+                    if (conn->ctx->on_request_r != NULL) {
+                        conn->ctx->on_request_r(conn->ctx, req);
+                    } else {
+                        /* TODO 500  */
+                    }
                     break;
                 case MANGUSTA_CONNECTION_WEBSOCKET:
                     assert(0);
                     break;
-#if 0
-                case MANGUSTA_REQUEST_INIT:
-                case MANGUSTA_REQUEST_HEADERS:
-                    rv = parse_headers(conn);
-                    if (rv == APR_SUCCESS) {
-                        conn->state = MANGUSTA_REQUEST_PAYLOAD;
-                    } else if (rv == APR_INCOMPLETE) {
-                        /* just wait the next loop */
-                    } else {
-                        /* An error was received or bad data were parsed */
-                        assert(0);
-                    }
-                    break;
-                case MANGUSTA_REQUEST_PAYLOAD:
-                    assert(0);
-                    break;
-                case MANGUSTA_RESPONSE_HEADERS:
-                case MANGUSTA_RESPONSE_PAYLOAD:
-                case MANGUSTA_REQUEST_WAIT:
-                case MANGUSTA_REQUEST_CLOSE:
-                    assert(0);
-                    break;
-#endif
             }
         } else if ((rv == APR_TIMEUP) || (rv == APR_EOF) || (rv == APR_EINTR)
             ) {
             /* Not such a bug problem TODO Close connection after too much time */
+            mangusta_log(MANGUSTA_LOG_DEBUG, "+* %d", conn->state);
         } else {
             printf("************** %d\n", rv);
             assert(0);
@@ -175,22 +181,10 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
             apr_socket_close(conn->sock);
         }
 
-        /*
-           if (rv == APR_TIMEUP) {
-           printf("************** TIMEOUT %d\n", rv);
-           }
-           else if (rv == APR_EOF) {
-           printf("************** EOF %d\n", rv);
-           }
-           else if (rv == APR_EINTR) {
-           printf("************** EINTR %d\n", rv);
-           }
-         */
-
     }
 
-#if DEBUG_CONNECTION >= 1
-    nn_log(NN_LOG_DEBUG, "Terminating connection thread");
+#if MANGUSTA_DEBUG >= 1
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Terminating connection thread");
 #endif
     mangusta_connection_destroy(conn);
 
@@ -214,7 +208,7 @@ apr_status_t mangusta_connection_play(mangusta_connection_t * conn) {
         apr_socket_addr_get(&sa, APR_REMOTE, conn->sock);
         apr_sockaddr_ip_get(&ip, sa);
 
-//        nn_log(NN_LOG_ERROR, "Cannot start thread on incoming connection from IP: %s PORT: %d for ctx %s", ip, sa->port, conn->ctx->name);
+        mangusta_log(MANGUSTA_LOG_ERROR, "Cannot start thread on incoming connection from IP: %s PORT: %d", ip, sa->port);
         return APR_ERROR;
     }
 
@@ -233,6 +227,7 @@ mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_sock
         c->ctx = ctx;
         c->sock = sock;
         c->pool = npool;
+        c->state = MANGUSTA_CONNECTION_NEW;
 
         apr_queue_create(&c->requests, DEFAULT_REQUESTS_PER_CONNECTION_QUEUE, c->pool);
     }
@@ -250,17 +245,6 @@ mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_sock
 void mangusta_connection_destroy(mangusta_connection_t * conn) {
 
     assert(conn);
-
-#ifdef NP_POOL_DEBUG
-    {
-        apr_pool_t *pool;
-        pool = conn->pool;
-
-        apr_size_t s = apr_pool_num_bytes(pool, 1);
-        nn_log(NN_LOG_DEBUG, "Connection pool size is %zu", (size_t) s);
-    }
-#endif
-
     apr_pool_destroy(conn->pool);
 
     return;
