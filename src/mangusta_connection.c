@@ -120,7 +120,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                 case MANGUSTA_CONNECTION_REQUEST:
 
                     if (conn->current == NULL) {
-                        mangusta_log(MANGUSTA_LOG_DEBUG, "Creating connection");
+                        mangusta_log(MANGUSTA_LOG_DEBUG, "Creating Request");
                         if (mangusta_request_create(conn, &req) == APR_SUCCESS) {
                             // TODO ASD
                             conn->current = req;
@@ -161,10 +161,22 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                        If no callback is set, then the default is to reply with a 500 Internal Server Error
                      */
                     if (conn->ctx->on_request_r != NULL) {
-                        conn->ctx->on_request_r(conn->ctx, req);
+                        if (conn->ctx->on_request_r(conn->ctx, req) != APR_SUCCESS) {
+                            mangusta_response_status_set(req, 500, NULL);
+                        }
                     } else {
                         /* TODO 500  */
+                        mangusta_response_status_set(req, 500, NULL);
                     }
+
+                    if (mangusta_response_write(req) != APR_SUCCESS) {
+                        /* TODO Disconnect the connection */
+                    }
+
+                    mangusta_request_destroy(conn->current);
+                    conn->current = NULL;
+                    conn->state = MANGUSTA_CONNECTION_NEW;
+
                     break;
                 case MANGUSTA_CONNECTION_WEBSOCKET:
                     assert(0);

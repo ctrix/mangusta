@@ -141,6 +141,11 @@ struct mangusta_request_s {
     enum mangusta_http_version_e http_version;
 
     apr_hash_t *headers;
+
+    apr_hash_t *rheaders;
+    short status;
+    char *message;
+    mangusta_buffer_t *response;
 };
 
 mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock);
@@ -148,6 +153,7 @@ void mangusta_connection_destroy(mangusta_connection_t * conn);
 apr_status_t mangusta_connection_play(mangusta_connection_t * conn);
 
 apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_request_t ** req);
+void mangusta_request_destroy(mangusta_request_t * req);
 apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangusta_request_state_e newstate);
 apr_status_t mangusta_request_parse_headers(mangusta_request_t * req);
 apr_status_t mangusta_request_has_payload(mangusta_request_t * req);

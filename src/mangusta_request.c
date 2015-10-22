@@ -24,6 +24,9 @@ apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_requ
         r->conn = conn;
         r->state = MANGUSTA_REQUEST_HEADERS;
         r->headers = apr_hash_make(r->pool);
+        r->rheaders = apr_hash_make(r->pool);
+
+        r->response = mangusta_buffer_init(r->pool, 0, 0);
 
         status = apr_queue_push(conn->requests, r);
         if (status != APR_SUCCESS) {
@@ -36,6 +39,10 @@ apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_requ
     }
 
     return APR_ERROR;
+}
+
+void mangusta_request_destroy(mangusta_request_t * req) {
+    return apr_pool_destroy(req->pool);
 }
 
 apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangusta_request_state_e newstate) {
@@ -181,17 +188,29 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
 
 APR_DECLARE(char *) mangusta_request_header_get(mangusta_request_t * req, const char *name) {
     assert(req);
+
     if (!zstr(name)) {
         return apr_hash_get(req->headers, name, APR_HASH_KEY_STRING);
     }
     return NULL;
 }
 
+APR_DECLARE(char *) mangusta_request_method_get(mangusta_request_t * req) {
+    assert(req);
+    return req->c_method;
+}
+
+APR_DECLARE(char *) mangusta_request_protoversion_get(mangusta_request_t * req) {
+    assert(req);
+    return req->c_http_version;
+}
+
 apr_status_t mangusta_request_header_set(mangusta_request_t * req, const char *name, const char *value) {
     assert(req);
     if (!zstr(name)) {
+        //printf("%s - %s\n", name, value);
         apr_hash_set(req->headers, apr_pstrndup(req->pool, name, strlen(name)), APR_HASH_KEY_STRING, apr_pstrndup(req->pool, value, strlen(value)));
-        return APR_ERROR;
+        return APR_SUCCESS;
     }
     return APR_ERROR;
 }
@@ -204,6 +223,101 @@ apr_status_t mangusta_request_has_payload(mangusta_request_t * req) {
     return APR_ERROR;
 }
 
-apr_status_t mangusta_request_write_response(mangusta_request_t * req) {
+APR_DECLARE(apr_status_t) mangusta_response_status_set(mangusta_request_t * req, short status, const char *message) {
+    assert(req);
+    req->status = status;
+    req->message = apr_pstrdup(req->pool, message);
 
+    return APR_SUCCESS;
+}
+
+APR_DECLARE(apr_status_t) mangusta_response_header_set(mangusta_request_t * req, const char *name, const char *value) {
+    assert(req);
+
+    if (!zstr(name)) {
+        //printf("%s - %s\n", name, value);
+        apr_hash_set(req->rheaders, apr_pstrndup(req->pool, name, strlen(name)), APR_HASH_KEY_STRING, apr_pstrndup(req->pool, value, strlen(value)));
+        return APR_SUCCESS;
+    }
+
+    return APR_ERROR;
+}
+
+APR_DECLARE(apr_status_t) mangusta_response_body_append(mangusta_request_t * req, const char *value, apr_uint32_t size) {
+    assert(req);
+
+    if (!zstr(value)) {
+        return mangusta_buffer_append(req->response, value, size);
+    }
+
+    return APR_ERROR;
+}
+
+APR_DECLARE(apr_status_t) mangusta_response_body_appendf(mangusta_request_t * req, const char *fmt,...) {
+    char *s;
+    va_list ap;
+
+    va_start(ap, fmt);
+    s = apr_pvsprintf(req->pool, fmt, ap);
+    va_end(ap);
+
+    if (!zstr(s)) {
+        return mangusta_buffer_append(req->response, s, 0);
+    }
+
+    return APR_ERROR;
+}
+
+APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
+    char *out;
+    apr_uint32_t osize;
+    apr_size_t blen;
+    char buf[DEFAULT_BUFFER_SIZE];
+    apr_hash_index_t *hi;
+
+    if (req->status <= 0) {
+        mangusta_response_status_set(req, 500, "Ooops! Something weird happened.");
+    }
+
+    /*
+       TODO Add default headers:
+       Content-Type
+       Date
+       Server
+       Content-Length
+     */
+
+    osize = mangusta_buffer_get_char(req->response, &out);
+    snprintf(buf, sizeof(buf) - 1, "%zu", osize);
+    mangusta_response_header_set(req, "Content-Length", buf);
+    mangusta_response_header_set(req, "Connection", "Keep-Alive");
+
+    /* Start the output */
+    blen = snprintf(buf, sizeof(buf) - 1, "%s %d %s\r\n", req->c_http_version, req->status, req->message);
+    buf[blen] = '\0';
+    apr_socket_send(req->conn->sock, buf, &blen);
+
+    for (hi = apr_hash_first(req->pool, req->rheaders); hi; hi = apr_hash_next(hi)) {
+        char *key;
+        char *val;
+
+        apr_hash_this(hi, (const void **) &key, NULL, (void **) &val);
+        if (!zstr(val)) {
+            blen = snprintf(buf, sizeof(buf) - 1, "%s: %s\r\n", key, val);
+            buf[blen] = '\0';
+            apr_socket_send(req->conn->sock, buf, &blen);
+        }
+    }
+
+    blen = 2;
+    apr_socket_send(req->conn->sock, "\r\n", &blen);
+
+    osize = mangusta_buffer_get_char(req->response, &out);
+    if (osize > 0) {
+        blen = osize;
+        apr_socket_send(req->conn->sock, out, &blen);
+        mangusta_buffer_reset(req->response);
+    }
+
+    return APR_SUCCESS;
 }
