@@ -55,3 +55,53 @@ apr_status_t chomp(char *buffer, size_t length) {
 
     return APR_SUCCESS;
 }
+
+
+
+int mg_url_decode(const char *src, int src_len, char *dst,
+                  int dst_len, int is_form_url_encoded) {
+  int i, j, a, b;
+#define HEXTOI(x) (isdigit(x) ? x - '0' : x - 'W')
+
+  for (i = j = 0; i < src_len && j < dst_len - 1; i++, j++) {
+    if (src[i] == '%' && i < src_len - 2 &&
+        isxdigit(* (const unsigned char *) (src + i + 1)) &&
+        isxdigit(* (const unsigned char *) (src + i + 2))) {
+      a = tolower(* (const unsigned char *) (src + i + 1));
+      b = tolower(* (const unsigned char *) (src + i + 2));
+      dst[j] = (char) ((HEXTOI(a) << 4) | HEXTOI(b));
+      i += 2;
+    } else if (is_form_url_encoded && src[i] == '+') {
+      dst[j] = ' ';
+    } else {
+      dst[j] = src[i];
+    }
+  }
+
+  dst[j] = '\0'; // Null-terminate the destination
+
+  return i >= src_len ? j : -1;
+}
+
+// Protect against directory disclosure attack by removing '..',
+// excessive '/' and '\' characters
+static void remove_double_dots_and_double_slashes(char *s) {
+  char *p = s;
+
+  while (*s != '\0') {
+    *p++ = *s++;
+    if (s[-1] == '/' || s[-1] == '\\') {
+      // Skip all following slashes, backslashes and double-dots
+      while (s[0] != '\0') {
+        if (s[0] == '/' || s[0] == '\\') {
+          s++;
+        } else if (s[0] == '.' && s[1] == '.') {
+          s += 2;
+        } else {
+          break;
+        }
+      }
+    }
+  }
+  *p = '\0';
+}
