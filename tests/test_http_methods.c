@@ -1,4 +1,7 @@
 
+#define URL1 "http://127.0.0.1:8090/test"
+#define URL2 "http://127.0.0.1:8090/stop"
+
 static apr_status_t on_request_ready(mangusta_ctx_t * ctx, mangusta_request_t * req) {
     char *location;
     char *method;
@@ -31,7 +34,7 @@ static apr_status_t on_request_headers(mangusta_ctx_t * ctx, mangusta_request_t 
     return APR_SUCCESS;
 }
 
-static void curl_get_method(char *url) {
+static void curl_perform(mangusta_ctx_t * ctx) {
     CURL *curl;
     CURLcode res;
 
@@ -43,6 +46,7 @@ static void curl_get_method(char *url) {
         chunk = curl_slist_append(chunk, "X-TestSuite: true");
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
 
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "Test suite");
         curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
         //curl_easy_setopt(curl, CURLOPT_PATH_AS_IS, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Test suite");
@@ -64,13 +68,33 @@ static void curl_get_method(char *url) {
             printf("CURL received an error\n");
         }
 
+        curl_easy_setopt(curl, CURLOPT_URL, URL2);
         res = curl_easy_perform(curl);
+
+        if (CURLE_OK == res) {
+            char *ct;
+            long rc;
+            /* ask for the content-type */
+            res = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &rc);
+            res = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ct);
+
+            if ((CURLE_OK == res) && ct) {
+                printf("%ld - We received Content-Type: %s\n", rc, ct);
+            }
+        } else {
+            printf("CURL received an error\n");
+        }
+
+
 
         /* always cleanup */
         curl_easy_cleanup(curl);
 
         /* free the custom headers */
         curl_slist_free_all(chunk);
+
+        mangusta_context_stop(ctx);
+
     }
 }
 
@@ -102,7 +126,7 @@ void *test_http_methods(void **foo) {
 
     assert_int_equal(mangusta_context_background(ctx), APR_SUCCESS);
 
-    curl_get_method("http://127.0.0.1:8090/test");
+    curl_perform(ctx);
 
     while (mangusta_context_running(ctx) == APR_SUCCESS) {
         apr_sleep(100000);

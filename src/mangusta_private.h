@@ -18,7 +18,7 @@
 #define zstr(x)  ( ((x==NULL) || (*x == '\0')) ? 1 : 0)
 
 #define DEFAULT_POLLSET_NUM 8
-#define DEFAULT_POLL_TIMEOUT (APR_USEC_PER_SEC * 0.1)
+#define DEFAULT_POLL_TIMEOUT (APR_USEC_PER_SEC / 4)
 
 #define DEFAULT_SOCKET_BACKLOG SOMAXCONN
 #define DEFAULT_THREAD_STACKSIZE 250 * 1024
@@ -96,6 +96,7 @@ struct mangusta_ctx_s {
     int port;
     apr_size_t maxconn;
     apr_size_t maxidle;
+    short httpkeepalive;
     mangusta_ctx_connect_cb_f on_connect;
     mangusta_ctx_request_header_cb_f on_request_h;
     mangusta_ctx_request_ready_cb_f on_request_r;
@@ -129,6 +130,7 @@ struct mangusta_connection_s {
     apr_time_t last_io;
     mangusta_buffer_t *buffer_r;
     short must_close;
+    short httpkeepalive;
 };
 
 struct mangusta_request_s {

@@ -45,6 +45,7 @@ APR_DECLARE(apr_status_t) mangusta_context_set_host(mangusta_ctx_t * ctx, const 
 
     if (!zstr(host)) {
         ctx->host = apr_pstrdup(ctx->pool, host);
+        ctx->httpkeepalive = 5;
         return APR_SUCCESS;
     }
 
@@ -73,6 +74,13 @@ APR_DECLARE(apr_status_t) mangusta_context_set_max_idle(mangusta_ctx_t * ctx, ap
     assert(ctx && ctx->pool);
 
     ctx->maxidle = max;
+    return APR_SUCCESS;
+}
+
+APR_DECLARE(apr_status_t) mangusta_context_set_http_keepalive(mangusta_ctx_t * ctx, apr_size_t sec) {
+    assert(ctx && ctx->pool);
+
+    ctx->httpkeepalive = sec;
     return APR_SUCCESS;
 }
 
@@ -162,6 +170,7 @@ static void *on_client_connect(apr_thread_t * thread, void *data) {
         rv = apr_socket_accept(&new_sock, ctx->sock, pool);
 
         if (rv == APR_SUCCESS) {
+            //apr_socket_opt_set(new_sock, APR_SO_NONBLOCK, 1);
             apr_socket_opt_set(new_sock, APR_SO_KEEPALIVE, 1);
             apr_socket_opt_set(new_sock, APR_SO_LINGER, 1);
 

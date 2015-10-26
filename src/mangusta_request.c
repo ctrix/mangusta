@@ -105,6 +105,7 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
             chomp(line, 0);
 
             req->c_method = apr_pcalloc(req->pool, strlen(line) + 1);
+            req->c_method = apr_pstrdup(req->pool, line);
             req->url = apr_pcalloc(req->pool, strlen(line) + 1);
             req->c_http_version = apr_pcalloc(req->pool, strlen(line) + 1);
 
@@ -113,9 +114,18 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
 
             if (ret == 3 && !strncasecmp(req->c_http_version, "HTTP/", strlen("HTTP/"))) {
                 unsigned int major, minor;
-
                 /* Break apart the protocol and update the connection structure. */
                 ret = sscanf(req->c_http_version + strlen("HTTP/"), "%u.%u", &major, &minor);
+
+// TODO Request too large (URL) REJECT
+// TODO VALIDATE URI
+
+  // Conform to http://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html#sec5.1.2
+  // URI can be an asterisk (*) or should start with slash.
+  //return uri[0] == '/' || (uri[0] == '*' && uri[1] == '\0');
+
+// SPLIT URL AND QUERY STRING AFTER ?
+
                 if (ret != 2) {
                     // TODO RETURN PROPER ERROR
                     return APR_ERROR;
@@ -284,13 +294,15 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
        Content-Type
        Date
        Server
-       Content-Length
+       Connection
      */
+
+    //mangusta_response_header_set(req, "Connection", "Close"); // TODO Only if keep alive is disabled
+
 
     osize = mangusta_buffer_get_char(req->response, &out);
     snprintf(buf, sizeof(buf) - 1, "%d", osize);
     mangusta_response_header_set(req, "Content-Length", buf);
-    mangusta_response_header_set(req, "Connection", "Keep-Alive");
 
     /* Start the output */
     blen = snprintf(buf, sizeof(buf) - 1, "%s %d %s\r\n", req->c_http_version, req->status, req->message);
