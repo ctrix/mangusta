@@ -73,7 +73,8 @@ enum http_resp_codes_e {
     HTTP_VERSION_NOT_SUPPORTED = 505,
 };
 
-static struct http_error_codes_s {
+/*
+struct http_error_codes_s {
     http_resp_codes_t code;
     int number;
     char *string;
@@ -106,6 +107,7 @@ static struct http_error_codes_s {
     HTTP_BAD_GATEWAY, 502, "Bad Gateway"}, {
     HTTP_SERVICE_UNAVALAIBLE, 503, "Service Unavailable"}, {
 HTTP_VERSION_NOT_SUPPORTED, 505, "HTTP Version not supported"},};
+*/
 
 typedef struct mangusta_ctx_s mangusta_ctx_t;
 typedef struct mangusta_connection_s mangusta_connection_t;

@@ -288,7 +288,7 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
      */
 
     osize = mangusta_buffer_get_char(req->response, &out);
-    snprintf(buf, sizeof(buf) - 1, "%zu", osize);
+    snprintf(buf, sizeof(buf) - 1, "%d", osize);
     mangusta_response_header_set(req, "Content-Length", buf);
     mangusta_response_header_set(req, "Connection", "Keep-Alive");
 

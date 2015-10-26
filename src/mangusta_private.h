@@ -63,6 +63,7 @@ enum mangusta_request_method_e {
     MANGUSTA_METHOD_OTHER
 };
 
+/*
 static struct {
     enum mangusta_request_method_e method;
     char *name;
@@ -79,6 +80,7 @@ static struct {
     MANGUSTA_METHOD_MKCOL, "MKCOL"}, {
     MANGUSTA_METHOD_OTHER, NULL}
 };
+*/
 
 enum mangusta_payload_type_e {
     MANGUSTA_PAYLOAD_RAW,

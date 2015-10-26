@@ -12,6 +12,8 @@ void *test_connection(void **foo) {
     mangusta_ctx_t *ctx;
     apr_pool_t *pool;
 
+    (void) foo;
+
     status = mangusta_init();
     assert_int_equal(status, APR_SUCCESS);
 
