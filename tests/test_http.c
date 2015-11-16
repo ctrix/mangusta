@@ -11,13 +11,10 @@
 #include "test_http_methods.c"
 
 int main(void) {
-/*
-    const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_http_methods),
+    const struct UnitTest tests[] = {
+        unit_test(test_http_methods),
 //    cmocka_unit_test(test_http_status)
     };
 
-    return cmocka_run_group_tests(tests, NULL, NULL);
-*/
-    test_http_methods(NULL);
+    return run_tests(tests);
 }

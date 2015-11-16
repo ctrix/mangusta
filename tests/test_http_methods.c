@@ -40,18 +40,19 @@ static void curl_perform(mangusta_ctx_t * ctx) {
 
     curl = curl_easy_init();
     if (curl != NULL) {
-        struct curl_slist *chunk = NULL;
+        struct curl_slist *chunk1 = NULL;
+        struct curl_slist *chunk2 = NULL;
 
-        chunk = curl_slist_append(chunk, "Connection: keep-alive");
-        chunk = curl_slist_append(chunk, "X-TestSuite: true");
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
+        chunk1 = curl_slist_append(chunk1, "Connection: keep-alive");
+        chunk1 = curl_slist_append(chunk1, "X-TestSuite: true");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk1);
 
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Test suite");
         curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
         //curl_easy_setopt(curl, CURLOPT_PATH_AS_IS, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Test suite");
         //curl_easy_setopt(curl, CURLOPT_POST, 1L);
-        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_URL, URL1);
         res = curl_easy_perform(curl);
 
         if (CURLE_OK == res) {
@@ -67,6 +68,14 @@ static void curl_perform(mangusta_ctx_t * ctx) {
         } else {
             printf("CURL received an error\n");
         }
+
+        /* free the custom headers */
+        curl_slist_free_all(chunk1);
+
+
+        chunk2 = curl_slist_append(chunk2, "Connection: close");
+        chunk2 = curl_slist_append(chunk2, "X-TestSuite: true");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk2);
 
         curl_easy_setopt(curl, CURLOPT_URL, URL2);
         res = curl_easy_perform(curl);
@@ -85,25 +94,20 @@ static void curl_perform(mangusta_ctx_t * ctx) {
             printf("CURL received an error\n");
         }
 
-
+        /* free the custom headers */
+        curl_slist_free_all(chunk2);
 
         /* always cleanup */
         curl_easy_cleanup(curl);
 
-        /* free the custom headers */
-        curl_slist_free_all(chunk);
-
         mangusta_context_stop(ctx);
-
     }
 }
 
-void *test_http_methods(void **foo) {
+static void test_http_methods(void **UNUSED(foo)) {
     apr_status_t status;
     mangusta_ctx_t *ctx;
     apr_pool_t *pool;
-
-    (void) foo;
 
     status = mangusta_init();
     assert_int_equal(status, APR_SUCCESS);
@@ -125,15 +129,15 @@ void *test_http_methods(void **foo) {
     assert_int_equal(mangusta_context_start(ctx), APR_SUCCESS);
 
     assert_int_equal(mangusta_context_background(ctx), APR_SUCCESS);
-
     curl_perform(ctx);
-
     while (mangusta_context_running(ctx) == APR_SUCCESS) {
         apr_sleep(100000);
     }
 
+    //mangusta_context_stop(ctx);
+
     assert_int_equal(mangusta_context_free(ctx), APR_SUCCESS);
     mangusta_shutdown();
 
-    return NULL;
+    return;
 }

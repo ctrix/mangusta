@@ -7,12 +7,10 @@ static apr_status_t connect_cb(mangusta_ctx_t * ctx, apr_socket_t * sock, apr_po
     return APR_SUCCESS;
 }
 
-void *test_connection(void **foo) {
+static void test_connection(void **UNUSED(foo)) {
     apr_status_t status;
     mangusta_ctx_t *ctx;
     apr_pool_t *pool;
-
-    (void) foo;
 
     status = mangusta_init();
     assert_int_equal(status, APR_SUCCESS);
@@ -43,5 +41,5 @@ void *test_connection(void **foo) {
     assert_int_equal(mangusta_context_free(ctx), APR_SUCCESS);
     mangusta_shutdown();
 
-    return NULL;
+    return;
 }

@@ -206,7 +206,8 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
             }
         } else if ( (rv == APR_EOF) || (rv == APR_EINTR)) {
             /* Not such a bug problem TODO Close connection after too much time */
-            mangusta_log(MANGUSTA_LOG_DEBUG, "+* %d", conn->state);
+            conn->terminated = 1;
+            apr_socket_close(conn->sock);
         } else {
             printf("************** %d\n", rv);
             assert(0);

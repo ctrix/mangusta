@@ -222,14 +222,16 @@ APR_DECLARE(apr_status_t) mangusta_context_wait(mangusta_ctx_t * ctx) {
     return status;
 }
 
-static void *APR_THREAD_FUNC mangusta_ctx_loop(apr_thread_t * thd, void *data) {
+static void *APR_THREAD_FUNC mangusta_ctx_loop(apr_thread_t *UNUSED(thd), void *data) {
     mangusta_ctx_t *ctx = data;
 
     while (!ctx->stopped) {
         mangusta_context_wait(ctx);
     }
 
-    apr_thread_exit(thd, APR_SUCCESS);
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Context Thread terminated...");
+
+    /*apr_thread_exit(thd, APR_SUCCESS);*/
 
     return NULL;
 }
@@ -254,17 +256,19 @@ APR_DECLARE(apr_status_t) mangusta_context_background(mangusta_ctx_t * ctx) {
 
 APR_DECLARE(apr_status_t) mangusta_context_running(mangusta_ctx_t * ctx) {
 
-    if (ctx->stopped != 0) {
-        return APR_ERROR;
+    if (!ctx->stopped) {
+        return APR_SUCCESS;
     }
 
-    return APR_SUCCESS;
+    return APR_ERROR;
 }
 
 APR_DECLARE(apr_status_t) mangusta_context_stop(mangusta_ctx_t * ctx) {
     assert(ctx);
 
     ctx->stopped = 1;
+
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Context stopped");
 
     return apr_socket_close(ctx->sock);
 }
@@ -273,6 +277,8 @@ APR_DECLARE(apr_status_t) mangusta_context_free(mangusta_ctx_t * ctx) {
     apr_status_t status = APR_SUCCESS;
     apr_pool_t *pool;
     assert(ctx);
+
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Freeing Context");
 
     if (ctx->thread != NULL) {
         apr_thread_join(&status, ctx->thread);

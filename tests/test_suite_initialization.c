@@ -1,5 +1,5 @@
 
-void test_library_initialization(void) {
+static void test_library_initialization(void **UNUSED(foo)) {
     apr_status_t status;
 
     status = mangusta_init();

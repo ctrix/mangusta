@@ -85,7 +85,7 @@ int mg_url_decode(const char *src, int src_len, char *dst,
 
 // Protect against directory disclosure attack by removing '..',
 // excessive '/' and '\' characters
-static void remove_double_dots_and_double_slashes(char *s) {
+void remove_double_dots_and_double_slashes(char *s) {
   char *p = s;
 
   while (*s != '\0') {

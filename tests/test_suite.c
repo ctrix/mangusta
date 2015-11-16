@@ -39,13 +39,12 @@ static void curl_get(char *url) {
 #include "test_suite_connection.c"
 
 int main(void) {
-/*
-    const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_library_initialization),
-        cmocka_unit_test(test_context_setup),
-        cmocka_unit_test(test_connection)
+
+    const struct UnitTest tests[] = {
+        unit_test(test_library_initialization),
+        unit_test(test_context_setup),
+        unit_test(test_connection)
     };
 
-    return cmocka_run_group_tests(tests, NULL, NULL);
-*/
+    return run_tests(tests);
 }

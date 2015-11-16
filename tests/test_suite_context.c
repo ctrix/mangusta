@@ -1,5 +1,5 @@
 
-void test_context_setup(void) {
+static void test_context_setup(void **UNUSED(foo)) {
     apr_status_t status;
     mangusta_ctx_t *ctx;
     apr_pool_t *pool;
