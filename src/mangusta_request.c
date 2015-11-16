@@ -120,9 +120,9 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
 // TODO Request too large (URL) REJECT
 // TODO VALIDATE URI
 
-  // Conform to http://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html#sec5.1.2
-  // URI can be an asterisk (*) or should start with slash.
-  //return uri[0] == '/' || (uri[0] == '*' && uri[1] == '\0');
+                // Conform to http://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html#sec5.1.2
+                // URI can be an asterisk (*) or should start with slash.
+                //return uri[0] == '/' || (uri[0] == '*' && uri[1] == '\0');
 
 // SPLIT URL AND QUERY STRING AFTER ?
 
@@ -263,7 +263,7 @@ APR_DECLARE(apr_status_t) mangusta_response_body_append(mangusta_request_t * req
     return APR_ERROR;
 }
 
-APR_DECLARE(apr_status_t) mangusta_response_body_appendf(mangusta_request_t * req, const char *fmt,...) {
+APR_DECLARE(apr_status_t) mangusta_response_body_appendf(mangusta_request_t * req, const char *fmt, ...) {
     char *s;
     va_list ap;
 
@@ -298,7 +298,6 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
      */
 
     //mangusta_response_header_set(req, "Connection", "Close"); // TODO Only if keep alive is disabled
-
 
     osize = mangusta_buffer_get_char(req->response, &out);
     snprintf(buf, sizeof(buf) - 1, "%d", osize);

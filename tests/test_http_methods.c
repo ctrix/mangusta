@@ -22,6 +22,8 @@ static apr_status_t on_request_ready(mangusta_ctx_t * ctx, mangusta_request_t * 
 
     printf("** %s => %s %s %s\n", __FUNCTION__, method, location, version);
 
+    mangusta_context_stop(ctx);
+
     return APR_SUCCESS;
 }
 
@@ -71,7 +73,6 @@ static void curl_perform(mangusta_ctx_t * ctx) {
 
         /* free the custom headers */
         curl_slist_free_all(chunk1);
-
 
         chunk2 = curl_slist_append(chunk2, "Connection: close");
         chunk2 = curl_slist_append(chunk2, "X-TestSuite: true");
@@ -129,12 +130,13 @@ static void test_http_methods(void **UNUSED(foo)) {
     assert_int_equal(mangusta_context_start(ctx), APR_SUCCESS);
 
     assert_int_equal(mangusta_context_background(ctx), APR_SUCCESS);
+
     curl_perform(ctx);
     while (mangusta_context_running(ctx) == APR_SUCCESS) {
-        apr_sleep(100000);
+        apr_sleep(APR_USEC_PER_SEC / 20);
     }
 
-    //mangusta_context_stop(ctx);
+    /* mangusta_context_stop(ctx); */
 
     assert_int_equal(mangusta_context_free(ctx), APR_SUCCESS);
     mangusta_shutdown();

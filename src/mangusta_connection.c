@@ -104,10 +104,9 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
         apr_int32_t num;
         const apr_pollfd_t *ret_pfd;
 
-        if ( !skip_poll ) {
+        if (!skip_poll) {
             rv = apr_pollset_poll(conn->pollset, DEFAULT_POLL_TIMEOUT, &num, &ret_pfd);
-        }
-        else {
+        } else {
             skip_poll = 0;
             num = 0;
             rv = APR_SUCCESS;
@@ -128,16 +127,15 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                 case MANGUSTA_CONNECTION_REQUEST:
 
                     if (conn->current == NULL) {
-                        mangusta_log(MANGUSTA_LOG_DEBUG, "Creating Request %d", num);
+                        mangusta_log(MANGUSTA_LOG_DEBUG, "Creating Request");
                         if (mangusta_request_create(conn, &req) == APR_SUCCESS) {
                             // TODO ASD
                             conn->current = req;
                         }
                     }
-
 // TODO Request too large - Buffer exceeded
 
-                    if ((conn->current->state == MANGUSTA_REQUEST_HEADERS) && (buffer_contains_headers(conn) == APR_SUCCESS) ) {
+                    if ((conn->current->state == MANGUSTA_REQUEST_HEADERS) && (buffer_contains_headers(conn) == APR_SUCCESS)) {
                         mangusta_log(MANGUSTA_LOG_DEBUG, "Read buffer contains headers");
                         if (mangusta_request_parse_headers(req) != APR_SUCCESS) {
                             // TODO 400 Bad Request + Must Close
@@ -145,7 +143,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                             assert(0);
                         } else {
                             if (conn->ctx->on_request_h != NULL) {
-                                if ( conn->ctx->on_request_h(conn->ctx, req) != APR_SUCCESS ) {
+                                if (conn->ctx->on_request_h(conn->ctx, req) != APR_SUCCESS) {
                                     /* We're asked to stop and disconnect with a 400 Bad Request TODO */
                                 }
                             }
@@ -196,15 +194,15 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                     assert(0);
                     break;
             }
-        } else if ( rv == APR_TIMEUP) {
+        } else if (rv == APR_TIMEUP) {
             apr_time_t delta = apr_time_now() - conn->last_io;
             mangusta_log(MANGUSTA_LOG_DEBUG, "TUP %.2f", (float) delta / APR_USEC_PER_SEC);
-            if ( (float) delta / APR_USEC_PER_SEC >= conn->httpkeepalive) {
+            if ((float) delta / APR_USEC_PER_SEC >= conn->httpkeepalive) {
                 /* TODO */
                 conn->terminated = 1;
                 apr_socket_close(conn->sock);
             }
-        } else if ( (rv == APR_EOF) || (rv == APR_EINTR)) {
+        } else if ((rv == APR_EOF) || (rv == APR_EINTR)) {
             /* Not such a bug problem TODO Close connection after too much time */
             conn->terminated = 1;
             apr_socket_close(conn->sock);
@@ -226,6 +224,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 }
 
 apr_status_t mangusta_connection_play(mangusta_connection_t * conn) {
+/*
     apr_thread_t *thread;
     apr_threadattr_t *thd_attr;
 
@@ -245,6 +244,9 @@ apr_status_t mangusta_connection_play(mangusta_connection_t * conn) {
         mangusta_log(MANGUSTA_LOG_ERROR, "Cannot start thread on incoming connection from IP: %s PORT: %d", ip, sa->port);
         return APR_ERROR;
     }
+*/
+
+    conn_thread_run(NULL, conn);
 
     return APR_SUCCESS;
 }

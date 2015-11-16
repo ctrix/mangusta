@@ -41,8 +41,8 @@ static void curl_get(char *url) {
 int main(void) {
 
     const struct UnitTest tests[] = {
-        unit_test(test_library_initialization),
-        unit_test(test_context_setup),
+        //unit_test(test_library_initialization),
+        //unit_test(test_context_setup),
         unit_test(test_connection)
     };
 

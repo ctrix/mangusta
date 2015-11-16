@@ -108,7 +108,7 @@ APR_DECLARE(apr_status_t) mangusta_context_start(mangusta_ctx_t * ctx) {
 
     ctx->sock = sock;
 
-    status = apr_pollset_create(&ctx->pollset, DEFAULT_POLLSET_NUM, ctx->pool, APR_POLLSET_THREADSAFE);
+    status = apr_pollset_create(&ctx->pollset, DEFAULT_POLLSET_NUM, ctx->pool, 0);
     assert(status == APR_SUCCESS);
 #ifdef apr_pollset_method_name
     /*
@@ -155,41 +155,45 @@ APR_DECLARE(apr_status_t) mangusta_context_set_request_ready_cb(mangusta_ctx_t *
     return APR_SUCCESS;
 }
 
+struct tp_data {
+    apr_pool_t *p;
+    mangusta_ctx_t *c;
+    apr_socket_t *s;
+};
+
 static void *on_client_connect(apr_thread_t * thread, void *data) {
-    mangusta_ctx_t *ctx = data;
+    mangusta_ctx_t *ctx;
     mangusta_connection_t *conn;
     apr_pool_t *pool = NULL;
     apr_status_t rv;
     apr_socket_t *new_sock;
+    struct tp_data *tpd = data;
 
-    assert(thread && ctx);
+    pool = tpd->p;
+    ctx = tpd->c;
+    new_sock = tpd->s;
 
-    apr_pool_create(&pool, ctx->pool);
+    assert(thread && ctx && pool && new_sock);
 
     if (pool != NULL) {
-        rv = apr_socket_accept(&new_sock, ctx->sock, pool);
+        //apr_socket_opt_set(new_sock, APR_SO_NONBLOCK, 1);
+        apr_socket_opt_set(new_sock, APR_SO_KEEPALIVE, 1);
+        apr_socket_opt_set(new_sock, APR_SO_LINGER, 1);
 
-        if (rv == APR_SUCCESS) {
-            //apr_socket_opt_set(new_sock, APR_SO_NONBLOCK, 1);
-            apr_socket_opt_set(new_sock, APR_SO_KEEPALIVE, 1);
-            apr_socket_opt_set(new_sock, APR_SO_LINGER, 1);
+        conn = mangusta_connection_create(ctx, new_sock);
+        if (conn != NULL) {
 
-            conn = mangusta_connection_create(ctx, new_sock);
-            if (conn != NULL) {
+            rv = APR_SUCCESS;
+            if (ctx->on_connect != NULL) {
+                rv = ctx->on_connect(ctx, new_sock, pool);
+                // TODO IF FAIL SET LINGER TO ZERO SO THAT THE SOCKET, ON SOME TCP STACK, CAN SEND A RST
+            }
 
-                if (ctx->on_connect != NULL) {
-                    rv = ctx->on_connect(ctx, new_sock, pool);
-                    // TODO IF FAIL SET LINGER TO ZERO SO THAT THE SOCKET, ON SOME TCP STACK, CAN SEND A RST
-                }
-
-                if ((rv != APR_SUCCESS) || (mangusta_connection_play(conn) != APR_SUCCESS)) {
-                    mangusta_connection_destroy(conn);
-                }
-            } else {
-                apr_socket_close(new_sock);
-                apr_pool_destroy(pool);
+            if ((rv != APR_SUCCESS) || (mangusta_connection_play(conn) != APR_SUCCESS)) {
+                mangusta_connection_destroy(conn);
             }
         } else {
+            apr_socket_close(new_sock);
             apr_pool_destroy(pool);
         }
     }
@@ -198,19 +202,38 @@ static void *on_client_connect(apr_thread_t * thread, void *data) {
 }
 
 APR_DECLARE(apr_status_t) mangusta_context_wait(mangusta_ctx_t * ctx) {
-    apr_status_t status;
+    apr_status_t status, rv;
     apr_int32_t num;
     const apr_pollfd_t *ret_pfd = NULL;
 
     assert(ctx);
 
-    status = apr_pollset_poll(ctx->pollset, DEFAULT_POLL_TIMEOUT, &num, &ret_pfd);
-    if (status == APR_SUCCESS) {
+    status = APR_ERROR;
+
+    rv = apr_pollset_poll(ctx->pollset, DEFAULT_POLL_TIMEOUT, &num, &ret_pfd);
+    if (rv == APR_SUCCESS) {
         int i;
         assert(num > 0);
         for (i = 0; i < num; i++) {
-            if (ret_pfd[i].desc.s == ctx->sock) {
-                status = apr_thread_pool_push(ctx->tp, on_client_connect, ctx, APR_THREAD_TASK_PRIORITY_NORMAL, ctx->sock);
+            if ((ret_pfd[i].desc.s == ctx->sock) && (ret_pfd[i].rtnevents == APR_POLLIN)) {
+                apr_pool_t *pool;
+                apr_socket_t *sock;
+                struct tp_data *tpd;
+
+                apr_pool_create(&pool, ctx->pool);
+                if (pool != NULL) {
+                    rv = apr_socket_accept(&sock, ctx->sock, pool);
+                    if (rv == APR_SUCCESS) {
+                        tpd = apr_palloc(pool, sizeof(struct tp_data));
+                        if (tpd != NULL) {
+                            tpd->p = pool;
+                            tpd->c = ctx;
+                            tpd->s = sock;
+                            status = apr_thread_pool_push(ctx->tp, on_client_connect, tpd, APR_THREAD_TASK_PRIORITY_NORMAL, sock);
+                        }
+                    }
+                }
+
                 assert(status == APR_SUCCESS);
             } else {
                 // This should never happen...
@@ -222,16 +245,15 @@ APR_DECLARE(apr_status_t) mangusta_context_wait(mangusta_ctx_t * ctx) {
     return status;
 }
 
-static void *APR_THREAD_FUNC mangusta_ctx_loop(apr_thread_t *UNUSED(thd), void *data) {
+static void *APR_THREAD_FUNC mangusta_ctx_loop(apr_thread_t * thd, void *data) {
     mangusta_ctx_t *ctx = data;
 
     while (!ctx->stopped) {
         mangusta_context_wait(ctx);
     }
 
+    apr_thread_exit(thd, APR_SUCCESS);
     mangusta_log(MANGUSTA_LOG_DEBUG, "Context Thread terminated...");
-
-    /*apr_thread_exit(thd, APR_SUCCESS);*/
 
     return NULL;
 }
@@ -246,7 +268,6 @@ APR_DECLARE(apr_status_t) mangusta_context_background(mangusta_ctx_t * ctx) {
     assert(status == APR_SUCCESS);
 
     apr_threadattr_stacksize_set(th_attr, DEFAULT_THREAD_STACKSIZE);
-    apr_threadattr_detach_set(th_attr, 1);
 
     status = apr_thread_create(&ctx->thread, th_attr, mangusta_ctx_loop, ctx, ctx->pool);
     assert(status == APR_SUCCESS);
@@ -270,13 +291,24 @@ APR_DECLARE(apr_status_t) mangusta_context_stop(mangusta_ctx_t * ctx) {
 
     mangusta_log(MANGUSTA_LOG_DEBUG, "Context stopped");
 
-    return apr_socket_close(ctx->sock);
+    if (ctx->sock != NULL) {
+        apr_socket_close(ctx->sock);
+        ctx->sock = NULL;
+    }
+
+    return APR_SUCCESS;
 }
 
 APR_DECLARE(apr_status_t) mangusta_context_free(mangusta_ctx_t * ctx) {
     apr_status_t status = APR_SUCCESS;
     apr_pool_t *pool;
     assert(ctx);
+
+    apr_thread_pool_destroy(ctx->tp);
+
+    if (ctx->stopped != 1) {
+        mangusta_context_stop(ctx);
+    }
 
     mangusta_log(MANGUSTA_LOG_DEBUG, "Freeing Context");
 
@@ -285,6 +317,7 @@ APR_DECLARE(apr_status_t) mangusta_context_free(mangusta_ctx_t * ctx) {
     }
 
     pool = ctx->pool;
+
     // Improve cleanup: thread pool, pollset etcc...
     apr_pool_destroy(pool);
 

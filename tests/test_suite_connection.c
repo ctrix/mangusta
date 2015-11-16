@@ -32,12 +32,13 @@ static void test_connection(void **UNUSED(foo)) {
 
     assert_int_equal(mangusta_context_background(ctx), APR_SUCCESS);
 
+/*
     curl_get("http://127.0.0.1:8090/test");
-
     while (mangusta_context_running(ctx) == APR_SUCCESS) {
-        apr_sleep(100000);
+        apr_sleep(APR_USEC_PER_SEC);
     }
-
+*/
+    assert_int_equal(mangusta_context_stop(ctx), APR_SUCCESS);
     assert_int_equal(mangusta_context_free(ctx), APR_SUCCESS);
     mangusta_shutdown();
 

@@ -59,9 +59,9 @@ int main(void) {
 
     assert_int_equal(mangusta_context_start(ctx), APR_SUCCESS);
 
-/*
     assert_int_equal(mangusta_context_background(ctx), APR_SUCCESS);
 
+/*
     while (mangusta_context_running(ctx) == APR_SUCCESS) {
         apr_sleep(100000);
     }
