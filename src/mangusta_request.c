@@ -1,5 +1,7 @@
 
 #include "mangusta_private.h"
+
+/* The following header has been created with bin2c */
 #include "mangusta_request_error.h"
 
 /* ********************************************************************************************* */
@@ -255,12 +257,35 @@ APR_DECLARE(apr_status_t) mangusta_response_status_set(mangusta_request_t * req,
     return APR_SUCCESS;
 }
 
+APR_DECLARE(apr_status_t) mangusta_response_header_del(mangusta_request_t * req, const char *name) {
+    assert(req);
+
+    if (!zstr(name)) {
+        apr_hash_set(req->rheaders, name, APR_HASH_KEY_STRING, NULL);
+        return APR_SUCCESS;
+    }
+
+    return APR_ERROR;
+}
+
 APR_DECLARE(apr_status_t) mangusta_response_header_set(mangusta_request_t * req, const char *name, const char *value) {
     assert(req);
 
     if (!zstr(name)) {
         apr_hash_set(req->rheaders, apr_pstrndup(req->pool, name, strlen(name)), APR_HASH_KEY_STRING, apr_pstrndup(req->pool, value, strlen(value)));
         return APR_SUCCESS;
+    }
+
+    return APR_ERROR;
+}
+
+APR_DECLARE(apr_status_t) mangusta_response_header_exists(mangusta_request_t * req, const char *name) {
+    assert(req);
+
+    if (!zstr(name)) {
+        if (apr_hash_get(req->rheaders, name, APR_HASH_KEY_STRING) != NULL) {
+            return APR_SUCCESS;
+        }
     }
 
     return APR_ERROR;
@@ -303,27 +328,31 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
     apr_size_t blen;
     char buf[DEFAULT_BUFFER_SIZE];
     apr_hash_index_t *hi;
+    char timebuf[APR_RFC822_DATE_LEN];
 
     if (req->status <= 0) {
         mangusta_response_status_set(req, 500, "Ooops! Something weird happened.");
+        req->status = 500;
     }
 
     /*
        TODO Add default headers:
        Content-Type
-       Date
        Server
        Connection
      */
 
-    //mangusta_response_header_set(req, "Connection", "Close"); // TODO Only if keep alive is disabled
+    apr_rfc822_date(timebuf, apr_time_now());
+    mangusta_response_header_set(req, "Date", timebuf);
+
+    //mangusta_response_header_set(req, "Connection", "Close"); // TODO Only if keep alive is disabled and header is not set
 
     osize = mangusta_buffer_get_char(req->response, &out);
     snprintf(buf, sizeof(buf) - 1, "%d", osize);
     mangusta_response_header_set(req, "Content-Length", buf);
 
     /* Start the output */
-    blen = snprintf(buf, sizeof(buf) - 1, "%s %d %s\r\n", req->c_http_version, req->status, req->message);
+    blen = snprintf(buf, sizeof(buf) - 1, "%s %d %s\r\n", (req->c_http_version != NULL) ? req->c_http_version : "HTTP/1.0", req->status, req->message ? req->message : "Unset");
     buf[blen] = '\0';
     apr_socket_send(req->conn->sock, buf, &blen);
 
@@ -352,16 +381,52 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
     return APR_SUCCESS;
 }
 
+static void do_subst(const char *in, mangusta_buffer_t * buff, const char *s1, const char *s2) {
+    const char *p1 = NULL;
+    char *p2 = NULL;
+
+    if (!in || !s1 || !s2) {
+        return;
+    }
+
+    p1 = in;
+
+    while ((p1 <= in + strlen(in)) && (p2 = strstr(p1, s1))) {
+        int len = p2 - p1;
+        if (len) {
+            mangusta_buffer_append(buff, p1, len);
+        }
+        mangusta_buffer_append(buff, s2, strlen(s2));
+        p1 = p2 + strlen(s1);
+    }
+
+    if (p1) {
+        mangusta_buffer_append(buff, p1, strlen(p1));
+    }
+
+    return;
+}
+
 APR_DECLARE(apr_status_t) mangusta_error_write(mangusta_request_t * req) {
+    mangusta_buffer_t *b;
+    char *bdata;
+    char cstatus[8];
+
     if (req->status < 400 || req->status > 599) {
         mangusta_response_status_set(req, 500, "Internal server error");
     }
 
+    mangusta_response_body_clear(req);
+
+    req->must_close = 1;
     mangusta_response_header_set(req, "Connection", "close");
     mangusta_response_header_set(req, "Content-type", "text/html; charset=utf-8");
 
-    mangusta_response_body_clear(req);
-    mangusta_response_body_appendf(req, "%s", error_page);
+    b = mangusta_buffer_init(req->pool, 0, 0);
+    do_subst(error_page, b, "[MESSAGE]", req->message);
+    mangusta_buffer_get_char(b, &bdata);
+    snprintf(cstatus, sizeof(cstatus)-1, "%d", req->status);
+    do_subst(bdata, req->response, "[STATUS]", cstatus);
 
     return mangusta_response_write(req);
 }

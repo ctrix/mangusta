@@ -151,6 +151,8 @@ struct mangusta_request_s {
     short status;
     char *message;
     mangusta_buffer_t *response;
+
+    short must_close;
 };
 
 mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock);

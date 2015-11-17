@@ -199,8 +199,8 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                      */
                     if (conn->ctx->on_request_r != NULL) {
                         if (conn->ctx->on_request_r(conn->ctx, req) != APR_SUCCESS) {
-			    mangusta_error_write(req);
-			    goto done;
+                            mangusta_error_write(req);
+                            goto done;
                         }
                     } else {
                         /* TODO 500  */

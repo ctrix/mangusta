@@ -53,10 +53,6 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver) {
 
             printf("STATUS: %ld\n", rc);
 
-            if (rc != 200) {
-                assert(0);
-            }
-
         } else {
             assert_int_equal(res, CURLE_OK);
             mangusta_context_stop(ctx);
@@ -88,7 +84,7 @@ static apr_status_t on_request_ready(mangusta_ctx_t * ctx, mangusta_request_t * 
 
     if (strstr(url, "asd") != NULL) {
         mangusta_response_status_set(req, 200, "OK Pass");
-	return APR_ERROR;
+        return APR_ERROR;
     }
 
     if (strstr(url, "test1") != NULL) {
