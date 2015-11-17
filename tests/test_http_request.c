@@ -53,6 +53,14 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver) {
 
             printf("STATUS: %ld\n", rc);
 
+            if (strstr(url, "test3") != NULL) {
+                assert_int_equal(rc, 400);
+            } else if (strstr(url, "test4") != NULL) {
+                assert_int_equal(rc, 400);
+            } else {
+                assert_int_equal(rc, 200);
+            }
+
         } else {
             assert_int_equal(res, CURLE_OK);
             mangusta_context_stop(ctx);
@@ -128,6 +136,14 @@ static void test_perform(void **UNUSED(foo)) {
     *(params + PARAMSIZE_BIG1 - 1) = '\0';
     memcpy(params, URL3, sizeof(URL3) - 1);
     curl_perform(ctx, params, CURL_HTTP_VERSION_1_1);
+    free(params);
+
+    params = malloc(PARAMSIZE_BIG2);
+    memset(params, 'A', PARAMSIZE_BIG2);
+    *(params + PARAMSIZE_BIG2 - 1) = '\0';
+    memcpy(params, URL4, sizeof(URL4) - 1);
+    curl_perform(ctx, params, CURL_HTTP_VERSION_1_1);
+    free(params);
 
     while (mangusta_context_running(ctx) == APR_SUCCESS) {
         apr_sleep(APR_USEC_PER_SEC / 20);

@@ -144,14 +144,18 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                     if (conn->current == NULL) {
                         mangusta_log(MANGUSTA_LOG_DEBUG, "Creating Request");
                         if (mangusta_request_create(conn, &req) == APR_SUCCESS) {
-                            // TODO ASD
                             conn->current = req;
+                        } else {
+                            mangusta_response_status_set(req, 500, "Internal server error");
+                            mangusta_log(MANGUSTA_LOG_ERROR, "Cannot create new request structure");
+                            mangusta_error_write(req);
+                            goto done;
                         }
                     }
 
                     if (buffer_size_ok(conn) != APR_SUCCESS) {
                         /* Buffer size is too large. */
-                        mangusta_response_status_set(req, 400, "Bad Request");  // TODO
+                        mangusta_response_status_set(req, 400, "Bad Request");
                         mangusta_log(MANGUSTA_LOG_ERROR, "Request with headers too long");
                         mangusta_error_write(req);
                         goto done;
@@ -162,7 +166,6 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         if (mangusta_request_parse_headers(req) != APR_SUCCESS) {
                             // TODO 400 Bad Request + Must Close
                             mangusta_response_status_set(req, 400, "Bad Request");
-                            //assert(0);
                             mangusta_log(MANGUSTA_LOG_ERROR, "Request with bad headers");
                             mangusta_error_write(req);
                             goto done;
@@ -170,6 +173,9 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                             if (conn->ctx->on_request_h != NULL) {
                                 if (conn->ctx->on_request_h(conn->ctx, req) != APR_SUCCESS) {
                                     /* We're asked to stop and disconnect with a 400 Bad Request TODO */
+                                    // TODO TEST this condition
+                                    mangusta_error_write(req);
+                                    goto done;
                                 }
                             }
                         }
@@ -186,7 +192,8 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         skip_poll = 1;
                         continue;
                     } else if (conn->current->state == MANGUSTA_REQUEST_PAYLOAD) {
-                        // TODO ASD
+                        // TODO ASD + Add TEST
+                        assert(0);
                     }
                     break;
                 case MANGUSTA_CONNECTION_RESPONSE:
@@ -199,16 +206,20 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                      */
                     if (conn->ctx->on_request_r != NULL) {
                         if (conn->ctx->on_request_r(conn->ctx, req) != APR_SUCCESS) {
+                            // TODO TEST this condition
                             mangusta_error_write(req);
                             goto done;
                         }
                     } else {
-                        /* TODO 500  */
+                        /* TODO 500 - Test auto-message */
                         mangusta_response_status_set(req, 500, NULL);
                     }
 
                     if (mangusta_response_write(req) != APR_SUCCESS) {
                         /* TODO Disconnect the connection */
+                        mangusta_response_status_set(req, 500, NULL);
+                        mangusta_error_write(req);
+                        goto done;
                     }
 
                     mangusta_request_destroy(conn->current);
@@ -222,19 +233,20 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
             }
         } else if (rv == APR_TIMEUP) {
             apr_time_t delta = apr_time_now() - conn->last_io;
-            /*mangusta_log(MANGUSTA_LOG_DEBUG, "TUP %.2f", (float) delta / APR_USEC_PER_SEC); */
             if ((float) delta / APR_USEC_PER_SEC >= conn->httpkeepalive) {
-                /* TODO */
+                mangusta_log(MANGUSTA_LOG_DEBUG, "Keepalive expired: (%.2fs). Terminating connection.", (float) delta / APR_USEC_PER_SEC);
                 conn->terminated = 1;
                 apr_socket_close(conn->sock);
             }
         } else if ((rv == APR_EOF) || (rv == APR_EINTR)) {
-            /* Not such a bug problem TODO Close connection after too much time */
+            /* Not such a big problem: Close connection */
             conn->terminated = 1;
             apr_socket_close(conn->sock);
         } else {
-            printf("Poll result unknown ************** %d\n", rv);
-            assert(0);
+            mangusta_log(MANGUSTA_LOG_ERROR, "Poll result not managed ** %d ** Please report to the developer\n", rv);
+#if MANGUSTA_DEBUG >= 1
+            assert(0);          /* Should never happen. */
+#endif
             conn->terminated = 1;
             apr_socket_close(conn->sock);
         }

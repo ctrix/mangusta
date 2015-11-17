@@ -412,6 +412,8 @@ APR_DECLARE(apr_status_t) mangusta_error_write(mangusta_request_t * req) {
     char *bdata;
     char cstatus[8];
 
+    /* TODO If the headers have already been writte, then SKIP */
+
     if (req->status < 400 || req->status > 599) {
         mangusta_response_status_set(req, 500, "Internal server error");
     }
@@ -425,7 +427,7 @@ APR_DECLARE(apr_status_t) mangusta_error_write(mangusta_request_t * req) {
     b = mangusta_buffer_init(req->pool, 0, 0);
     do_subst(error_page, b, "[MESSAGE]", req->message);
     mangusta_buffer_get_char(b, &bdata);
-    snprintf(cstatus, sizeof(cstatus)-1, "%d", req->status);
+    snprintf(cstatus, sizeof(cstatus) - 1, "%d", req->status);
     do_subst(bdata, req->response, "[STATUS]", cstatus);
 
     return mangusta_response_write(req);

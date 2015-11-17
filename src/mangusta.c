@@ -96,7 +96,7 @@ APR_DECLARE(apr_status_t) mangusta_context_start(mangusta_ctx_t * ctx) {
 
     status = apr_sockaddr_info_get(&sa, ctx->host, APR_UNSPEC, ctx->port, 0, ctx->pool);
     if (status != APR_SUCCESS) {
-        //nn_log(NN_LOG_ERROR, "Cannot get sockaddr info for profile %s", profile->name); // TODO
+        mangusta_log(MANGUSTA_LOG_ERROR, "Cannot get sockaddr info for this context");
         return APR_ERROR;
     }
 
@@ -116,7 +116,7 @@ APR_DECLARE(apr_status_t) mangusta_context_start(mangusta_ctx_t * ctx) {
        It's easier to conditionally remove this log line
        without testing for the correct APR version.
      */
-    //nn_log(NN_LOG_DEBUG, "Profile '%s' using pollset method '%s'", name, apr_pollset_method_name(p->pollset)); // TODO
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Context is using pollset method '%s'", apr_pollset_method_name(p->pollset));
 #endif
 
     pfd.client_data = NULL;
@@ -186,7 +186,10 @@ static void *on_client_connect(apr_thread_t * thread, void *data) {
             rv = APR_SUCCESS;
             if (ctx->on_connect != NULL) {
                 rv = ctx->on_connect(ctx, new_sock, pool);
-                // TODO IF FAIL SET LINGER TO ZERO SO THAT THE SOCKET, ON SOME TCP STACK, CAN SEND A RST
+                // IF FAIL SET LINGER TO ZERO SO THAT THE SOCKET, ON SOME TCP STACK, CAN SEND A RST
+                if (rv != APR_SUCCESS) {
+                    apr_socket_opt_set(new_sock, APR_SO_LINGER, 0);
+                }
             }
 
             if ((rv != APR_SUCCESS) || (mangusta_connection_play(conn) != APR_SUCCESS)) {
