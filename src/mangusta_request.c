@@ -85,7 +85,7 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
     apr_uint32_t blen;
     char *bdata;
     char *end;
-    char line[DEFAULT_BUFFER_SIZE];
+    char line[REQUEST_HEADER_MAX_LEN - 1];
 
     assert(req);
     conn = req->conn;
@@ -159,10 +159,11 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
 
         } else {
             /*
-		Error extracting request line!
-		This should never happen.
-	    */
-            assert(0);          // TODO BAD REQUEST
+               Error extracting request line!
+               This happens when the header is too long
+             */
+            mangusta_response_status_set(req, 400, "Bad Request");
+            //assert(0);          // TODO BAD REQUEST
             return APR_ERROR;
         }
 
@@ -218,6 +219,11 @@ APR_DECLARE(char *) mangusta_request_method_get(mangusta_request_t * req) {
     return req->c_method;
 }
 
+APR_DECLARE(char *) mangusta_request_url_get(mangusta_request_t * req) {
+    assert(req);
+    return req->url;
+}
+
 APR_DECLARE(char *) mangusta_request_protoversion_get(mangusta_request_t * req) {
     assert(req);
     return req->c_http_version;
@@ -226,7 +232,6 @@ APR_DECLARE(char *) mangusta_request_protoversion_get(mangusta_request_t * req) 
 apr_status_t mangusta_request_header_set(mangusta_request_t * req, const char *name, const char *value) {
     assert(req);
     if (!zstr(name)) {
-        //printf("%s - %s\n", name, value);
         apr_hash_set(req->headers, apr_pstrndup(req->pool, name, strlen(name)), APR_HASH_KEY_STRING, apr_pstrndup(req->pool, value, strlen(value)));
         return APR_SUCCESS;
     }
@@ -253,7 +258,6 @@ APR_DECLARE(apr_status_t) mangusta_response_header_set(mangusta_request_t * req,
     assert(req);
 
     if (!zstr(name)) {
-        //printf("%s - %s\n", name, value);
         apr_hash_set(req->rheaders, apr_pstrndup(req->pool, name, strlen(name)), APR_HASH_KEY_STRING, apr_pstrndup(req->pool, value, strlen(value)));
         return APR_SUCCESS;
     }

@@ -64,6 +64,21 @@ static apr_status_t buffer_contains_headers(mangusta_connection_t * conn) {
     return APR_ERROR;
 }
 
+static apr_status_t buffer_size_ok(mangusta_connection_t * conn) {
+    apr_uint32_t blen;
+    char *bdata;
+
+    assert(conn);
+
+    blen = mangusta_buffer_get_char(conn->buffer_r, &bdata);
+
+    if (blen < REQUEST_HEADERS_MAX_SIZE) {
+        return APR_SUCCESS;
+    }
+
+    return APR_ERROR;
+}
+
 static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void *data) {
     char *ip;
     char skip_poll = 0;
@@ -133,7 +148,12 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                             conn->current = req;
                         }
                     }
-// TODO Request too large - Buffer exceeded
+
+                    if (buffer_size_ok(conn) != APR_SUCCESS) {
+                        /* Buffer size is too large. */
+                        mangusta_response_status_set(req, 400, "Bad Request");
+                        assert(0);  // TODO
+                    }
 
                     if ((conn->current->state == MANGUSTA_REQUEST_HEADERS) && (buffer_contains_headers(conn) == APR_SUCCESS)) {
                         mangusta_log(MANGUSTA_LOG_DEBUG, "Read buffer contains headers");
@@ -196,7 +216,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
             }
         } else if (rv == APR_TIMEUP) {
             apr_time_t delta = apr_time_now() - conn->last_io;
-            mangusta_log(MANGUSTA_LOG_DEBUG, "TUP %.2f", (float) delta / APR_USEC_PER_SEC);
+            /*mangusta_log(MANGUSTA_LOG_DEBUG, "TUP %.2f", (float) delta / APR_USEC_PER_SEC); */
             if ((float) delta / APR_USEC_PER_SEC >= conn->httpkeepalive) {
                 /* TODO */
                 conn->terminated = 1;
@@ -207,7 +227,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
             conn->terminated = 1;
             apr_socket_close(conn->sock);
         } else {
-            printf("************** %d\n", rv);
+            printf("Poll result unknown ************** %d\n", rv);
             assert(0);
             conn->terminated = 1;
             apr_socket_close(conn->sock);
@@ -224,27 +244,6 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 }
 
 apr_status_t mangusta_connection_play(mangusta_connection_t * conn) {
-/*
-    apr_thread_t *thread;
-    apr_threadattr_t *thd_attr;
-
-    assert(conn);
-
-    apr_threadattr_create(&thd_attr, conn->pool);
-    apr_threadattr_stacksize_set(thd_attr, DEFAULT_THREAD_STACKSIZE);
-    apr_threadattr_detach_set(thd_attr, 1);
-
-    if (apr_thread_create(&thread, thd_attr, conn_thread_run, conn, conn->pool) != APR_SUCCESS) {
-        apr_sockaddr_t *sa;
-        char *ip;
-
-        apr_socket_addr_get(&sa, APR_REMOTE, conn->sock);
-        apr_sockaddr_ip_get(&ip, sa);
-
-        mangusta_log(MANGUSTA_LOG_ERROR, "Cannot start thread on incoming connection from IP: %s PORT: %d", ip, sa->port);
-        return APR_ERROR;
-    }
-*/
 
     conn_thread_run(NULL, conn);
 

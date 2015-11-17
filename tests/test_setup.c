@@ -2,6 +2,7 @@
 #include "_test_framework.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>

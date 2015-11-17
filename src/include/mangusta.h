@@ -31,6 +31,9 @@ typedef short int apr_bool_t;
 #endif
 #endif
 
+#define MANGUSTA_REQUEST_HEADER_MAX_LEN 4 * 1024
+#define MANGUSTA_REQUEST_HEADERS_MAX_SIZE 8 * 1024
+
 typedef enum http_resp_codes_e http_resp_codes_t;
 enum http_resp_codes_e {
     HTTP_CONTINUE = 100,
@@ -143,6 +146,7 @@ APR_DECLARE(apr_status_t) mangusta_connection_set_http_keepalive(mangusta_connec
 
 APR_DECLARE(char *) mangusta_request_header_get(mangusta_request_t * req, const char *name);
 APR_DECLARE(char *) mangusta_request_method_get(mangusta_request_t * req);
+APR_DECLARE(char *) mangusta_request_url_get(mangusta_request_t * req);
 APR_DECLARE(char *) mangusta_request_protoversion_get(mangusta_request_t * req);
 
 APR_DECLARE(apr_status_t) mangusta_response_status_set(mangusta_request_t * req, short status, const char *message);

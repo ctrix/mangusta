@@ -1,16 +1,16 @@
 
 #define MANGUSTA_TEST_BINDTO   "127.0.0.1"
-#define MANGUSTA_TEST_BINDPORT 8090
+#define MANGUSTA_TEST_BINDPORT "8090"
 
 #define MANGUSTA_TEST_INCLUDES \
     #include <assert.h> \
+    #include <stdlib.h> \
     #include <stdarg.h> \
     #include <stddef.h> \
     #include <setjmp.h> \
     #include <cmocka.h> \
     #include <curl/curl.h> \
     #include <mangusta.h>
-
 
 #define MANGUSTA_TEST_SETUP \
     apr_status_t status; \
@@ -27,17 +27,13 @@
     assert_non_null(pool); \
     \
     assert_int_equal(mangusta_context_set_host(ctx, MANGUSTA_TEST_BINDTO), APR_SUCCESS); \
-    assert_int_equal(mangusta_context_set_port(ctx, MANGUSTA_TEST_BINDPORT), APR_SUCCESS); \
+    assert_int_equal(mangusta_context_set_port(ctx, atoi(MANGUSTA_TEST_BINDPORT)), APR_SUCCESS); \
     assert_int_equal(mangusta_context_set_max_connections(ctx, 1024), APR_SUCCESS); \
     assert_int_equal(mangusta_context_set_max_idle(ctx, 1024), APR_SUCCESS); \
     \
     assert_int_equal(mangusta_context_start(ctx), APR_SUCCESS); \
     assert_int_equal(mangusta_context_background(ctx), APR_SUCCESS);
 
-
-
 #define MANGUSTA_TEST_DISPOSE \
     assert_int_equal(mangusta_context_free(ctx), APR_SUCCESS); \
     mangusta_shutdown();
-
-
