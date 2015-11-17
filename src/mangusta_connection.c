@@ -164,7 +164,6 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                     if ((conn->current->state == MANGUSTA_REQUEST_HEADERS) && (buffer_contains_headers(conn) == APR_SUCCESS)) {
                         mangusta_log(MANGUSTA_LOG_DEBUG, "Read buffer contains headers");
                         if (mangusta_request_parse_headers(req) != APR_SUCCESS) {
-                            // TODO 400 Bad Request + Must Close
                             mangusta_response_status_set(req, 400, "Bad Request");
                             mangusta_log(MANGUSTA_LOG_ERROR, "Request with bad headers");
                             mangusta_error_write(req);

@@ -1,3 +1,7 @@
+/*
+    This will test that the Keepalive behaviour is correct and that the
+    Connection header is honoured
+*/
 
 #include "_test_framework.h"
 
