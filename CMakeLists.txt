@@ -31,6 +31,7 @@ INCLUDE(CheckFunctionExists)
 INCLUDE(CheckLibraryExists)
 INCLUDE(CheckIncludeFile)
 INCLUDE(TestBigEndian)
+INCLUDE(MacroHelpers)
 
 #*************************
 # My checks

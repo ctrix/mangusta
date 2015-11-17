@@ -92,11 +92,15 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
     assert(conn);
     assert(req->state == MANGUSTA_REQUEST_INIT || req->state == MANGUSTA_REQUEST_HEADERS);
 
+    /* If in doubt, close the connection as default */
+    req->conn->must_close = 1;
+
+    /* Can we find the emd-header marker ? */
     blen = mangusta_buffer_get_char(conn->buffer_r, &bdata);
     if ((blen > 0) && (end = strnstr(bdata, HEADERS_END_MARKER, blen)) != NULL) {
         /* Headers found, so parse them */
-
         blen = (end + strlen(HEADERS_END_MARKER)) - bdata;
+
         /* Request line */
         if (mangusta_buffer_extract(conn->buffer_r, line, sizeof(line) - 1, '\n') == APR_SUCCESS) {
             size_t ret;
@@ -134,6 +138,7 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
                     // TODO RETURN PROPER ERROR
                     return APR_ERROR;
                 }
+
                 if (minor == 0) {
                     req->http_version = MANGUSTA_HTTP_10;
                 } else if (minor == 1) {
@@ -153,7 +158,10 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
             }
 
         } else {
-            /* Error extracting request line! */
+            /*
+		Error extracting request line!
+		This should never happen.
+	    */
             assert(0);          // TODO BAD REQUEST
             return APR_ERROR;
         }

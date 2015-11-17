@@ -61,11 +61,9 @@ int main(void) {
 
     assert_int_equal(mangusta_context_background(ctx), APR_SUCCESS);
 
-/*
     while (mangusta_context_running(ctx) == APR_SUCCESS) {
-        apr_sleep(100000);
+        apr_sleep(APR_USEC_PER_SEC / 100);
     }
-*/
 
     mangusta_context_stop(ctx);
 

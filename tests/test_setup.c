@@ -1,4 +1,6 @@
 
+#include "_test_framework.h"
+
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -8,12 +10,17 @@
 
 #include <mangusta.h>
 
-#include "test_http_methods.c"
+static void test_perform(void **UNUSED(foo)) {
+
+    MANGUSTA_TEST_SETUP;
+    MANGUSTA_TEST_DISPOSE;
+
+    return;
+}
 
 int main(void) {
     const struct UnitTest tests[] = {
-        unit_test(test_http_methods),
-//    cmocka_unit_test(test_http_status)
+        unit_test(test_perform),
     };
 
     return run_tests(tests);
