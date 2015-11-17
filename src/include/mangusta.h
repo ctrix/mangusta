@@ -151,8 +151,11 @@ APR_DECLARE(char *) mangusta_request_protoversion_get(mangusta_request_t * req);
 
 APR_DECLARE(apr_status_t) mangusta_response_status_set(mangusta_request_t * req, short status, const char *message);
 APR_DECLARE(apr_status_t) mangusta_response_header_set(mangusta_request_t * req, const char *name, const char *value);
+APR_DECLARE(apr_status_t) mangusta_response_body_clear(mangusta_request_t * req);
 APR_DECLARE(apr_status_t) mangusta_response_body_append(mangusta_request_t * req, const char *value, apr_uint32_t size);
 APR_DECLARE(apr_status_t) mangusta_response_body_appendf(mangusta_request_t * req, const char *fmt, ...) __attribute__ ((format(printf, 2, 3)));
 APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req);
+
+APR_DECLARE(apr_status_t) mangusta_error_write(mangusta_request_t * req);
 
 #endif

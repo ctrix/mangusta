@@ -1,5 +1,6 @@
 
 #include "mangusta_private.h"
+#include "mangusta_request_error.h"
 
 /* ********************************************************************************************* */
 
@@ -265,6 +266,12 @@ APR_DECLARE(apr_status_t) mangusta_response_header_set(mangusta_request_t * req,
     return APR_ERROR;
 }
 
+APR_DECLARE(apr_status_t) mangusta_response_body_clear(mangusta_request_t * req) {
+    assert(req);
+
+    return mangusta_buffer_reset(req->response);
+}
+
 APR_DECLARE(apr_status_t) mangusta_response_body_append(mangusta_request_t * req, const char *value, apr_uint32_t size) {
     assert(req);
 
@@ -343,4 +350,18 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
     }
 
     return APR_SUCCESS;
+}
+
+APR_DECLARE(apr_status_t) mangusta_error_write(mangusta_request_t * req) {
+    if (req->status < 400 || req->status > 599) {
+        mangusta_response_status_set(req, 500, "Internal server error");
+    }
+
+    mangusta_response_header_set(req, "Connection", "close");
+    mangusta_response_header_set(req, "Content-type", "text/html; charset=utf-8");
+
+    mangusta_response_body_clear(req);
+    mangusta_response_body_appendf(req, "%s", error_page);
+
+    return mangusta_response_write(req);
 }

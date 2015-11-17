@@ -151,8 +151,10 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 
                     if (buffer_size_ok(conn) != APR_SUCCESS) {
                         /* Buffer size is too large. */
-                        mangusta_response_status_set(req, 400, "Bad Request");
-                        assert(0);  // TODO
+                        mangusta_response_status_set(req, 400, "Bad Request");  // TODO
+                        mangusta_log(MANGUSTA_LOG_ERROR, "Request with headers too long");
+                        mangusta_error_write(req);
+                        goto done;
                     }
 
                     if ((conn->current->state == MANGUSTA_REQUEST_HEADERS) && (buffer_contains_headers(conn) == APR_SUCCESS)) {
@@ -160,7 +162,10 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         if (mangusta_request_parse_headers(req) != APR_SUCCESS) {
                             // TODO 400 Bad Request + Must Close
                             mangusta_response_status_set(req, 400, "Bad Request");
-                            assert(0);
+                            //assert(0);
+                            mangusta_log(MANGUSTA_LOG_ERROR, "Request with bad headers");
+                            mangusta_error_write(req);
+                            goto done;
                         } else {
                             if (conn->ctx->on_request_h != NULL) {
                                 if (conn->ctx->on_request_h(conn->ctx, req) != APR_SUCCESS) {
@@ -194,7 +199,8 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                      */
                     if (conn->ctx->on_request_r != NULL) {
                         if (conn->ctx->on_request_r(conn->ctx, req) != APR_SUCCESS) {
-                            mangusta_response_status_set(req, 500, NULL);
+			    mangusta_error_write(req);
+			    goto done;
                         }
                     } else {
                         /* TODO 500  */
@@ -235,6 +241,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 
     }
 
+ done:
 #if MANGUSTA_DEBUG >= 1
     mangusta_log(MANGUSTA_LOG_DEBUG, "Terminating connection thread");
 #endif
