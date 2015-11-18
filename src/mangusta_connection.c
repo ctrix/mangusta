@@ -36,8 +36,8 @@ static void on_read(mangusta_connection_t * conn) {
     if (rv == APR_SUCCESS) {
         mangusta_log(MANGUSTA_LOG_DEBUG, "[Read %zu bytes]", tot);
         b[tot] = '\0';
-        printf("**************\n%s\n", b);
 /*
+        printf("**************\n%s\n", b);
 */
         mangusta_buffer_append(conn->buffer_r, b, tot);
         return;
@@ -182,7 +182,9 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 
                                     if (((exp = mangusta_request_header_get(conn->current, "Expect")) != NULL) && (strstr(exp, "continue"))) {
                                         mangusta_log(MANGUSTA_LOG_DEBUG, "Sending 100-continue");
-                                        apr_socket_send(conn->sock, cont, &blen);
+                                        if (apr_socket_send(conn->sock, cont, &blen) != APR_SUCCESS) {
+                                            goto done;
+                                        }
                                     }
                                 }
                             }
@@ -201,6 +203,8 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         continue;
                     } else if (conn->current->state == MANGUSTA_REQUEST_PAYLOAD) {
                         // TODO ASD + Add TEST
+                        mangusta_request_feed(req, conn->buffer_r);
+
                         if (mangusta_request_payload_received(req) == APR_SUCCESS) {
                             mangusta_log(MANGUSTA_LOG_DEBUG, "Mangusta Request Payload received");
                             //assert(0);

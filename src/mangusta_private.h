@@ -1,6 +1,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
 #include "stdarg.h"
@@ -146,6 +147,7 @@ struct mangusta_request_s {
     enum mangusta_http_version_e http_version;
 
     apr_hash_t *headers;
+    mangusta_buffer_t *request;
 
     apr_hash_t *rheaders;
     short status;
@@ -153,6 +155,9 @@ struct mangusta_request_s {
     mangusta_buffer_t *response;
 
     short must_close;
+    apr_int64_t cl_total;
+    apr_int64_t cl_received;
+    short chunked;
 };
 
 mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock);
@@ -164,6 +169,7 @@ void mangusta_request_destroy(mangusta_request_t * req);
 apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangusta_request_state_e newstate);
 apr_status_t mangusta_request_parse_headers(mangusta_request_t * req);
 apr_status_t mangusta_request_has_payload(mangusta_request_t * req);
+APR_DECLARE(apr_status_t) mangusta_request_feed(mangusta_request_t * req, mangusta_buffer_t * in);
 apr_status_t mangusta_request_payload_received(mangusta_request_t * req);
 apr_status_t mangusta_request_header_set(mangusta_request_t * req, const char *name, const char *value);
 

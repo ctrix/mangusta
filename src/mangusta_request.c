@@ -155,6 +155,10 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
                 } else {
                     return APR_ERROR;
                 }
+            } else {
+                mangusta_log(MANGUSTA_LOG_ERROR, "Request refused. Too old or malformed");
+                mangusta_response_status_set(req, 400, "Bad Request");
+                return APR_ERROR;
             }
 
             if (zstr(req->url)) {
@@ -171,6 +175,8 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
                Error extracting request line!
                This happens when the header is too long
              */
+            req->http_version = MANGUSTA_HTTP_10;
+            req->c_http_version = "HTTP/1.0";
             mangusta_response_status_set(req, 400, "Bad Request");
             //assert(0);          // TODO BAD REQUEST
             return APR_ERROR;
@@ -258,9 +264,62 @@ apr_status_t mangusta_request_has_payload(mangusta_request_t * req) {
     /* https://tools.ietf.org/html/rfc7230#section-3.3 */
 
     if (mangusta_request_header_get(req, "Transfer-Encoding") || mangusta_request_header_get(req, "Content-Length")) {
+        if (mangusta_request_header_get(req, "Transfer-Encoding") != NULL) {
+            req->chunked = 1;
+        }
+        if (mangusta_request_header_get(req, "Content-Length") != NULL) {
+            req->cl_total = apr_strtoi64(mangusta_request_header_get(req, "Content-Length"), NULL, 0);
+        }
+
+        if (req->request == NULL) {
+            req->request = mangusta_buffer_init(req->pool, 0, 0);
+        }
+
         return APR_SUCCESS;
     }
     return APR_ERROR;
+}
+
+APR_DECLARE(apr_status_t) mangusta_request_feed(mangusta_request_t * req, mangusta_buffer_t * in) {
+    apr_status_t status = APR_ERROR;
+    apr_uint32_t blen;
+    char *bdata;
+
+    blen = mangusta_buffer_get_char(in, &bdata);
+
+    printf("--------- %d\n", blen);
+
+    if (blen > 0) {
+        char *b;
+        apr_int64_t left = req->cl_total - req->cl_received;
+        apr_int64_t toread;
+
+        toread = (blen < left) ? blen : left;
+
+        if (req->chunked == 0) {
+            /* Empty data from the connection buffer to the request buffer */
+            b = malloc(toread);
+
+            if (b != NULL) {
+                if (mangusta_buffer_read(in, b, toread) == APR_SUCCESS) {
+                    if (mangusta_buffer_append(req->request, b, toread) == APR_SUCCESS) {
+                        status = APR_SUCCESS;
+                        req->cl_received += toread;
+                    }
+                }
+                free(b);
+            }
+        } else if ((req->chunked == 0) && (req->cl_total - req->cl_received) > 0) {
+
+        }
+
+        printf("Total: %ld  Read: %ld   Left: %ld  Now: %ld \n", req->cl_total, req->cl_received, left, toread);
+
+    } else {
+        printf("--------- %d ZERO!\n", blen);
+    }
+
+    return status;
 }
 
 apr_status_t mangusta_request_payload_received(mangusta_request_t * req) {
@@ -269,7 +328,7 @@ apr_status_t mangusta_request_payload_received(mangusta_request_t * req) {
     apr_uint32_t blen;
     char *bdata;
 
-    blen = mangusta_buffer_get_char(req->conn->buffer_r, &bdata);
+    blen = mangusta_buffer_get_char(req->request, &bdata);
 
     te = mangusta_request_header_get(req, "Transfer-Encoding");
 
@@ -277,10 +336,13 @@ apr_status_t mangusta_request_payload_received(mangusta_request_t * req) {
         cl = apr_strtoi64(mangusta_request_header_get(req, "Content-Length"), NULL, 0);
     }
 
+/*
     printf("--------- %d\n", blen);
     printf("%s - %ld **\n", te, cl);
+*/
 
-    if ((te == NULL) && (cl <= blen)) {
+    if ((te == NULL) && (blen == cl )) {
+	printf("--------- Payload was fully received\n");
         return APR_SUCCESS;
     }
 
@@ -391,7 +453,7 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
     mangusta_response_header_set(req, "Content-Length", buf);
 
     /* Start the output */
-    blen = snprintf(buf, sizeof(buf) - 1, "%s %d %s\r\n", (req->c_http_version != NULL) ? req->c_http_version : "HTTP/1.0", req->status, req->message ? req->message : "Unset");
+    blen = snprintf(buf, sizeof(buf) - 1, "%s %d %s\r\n", zstr(req->c_http_version) ? "HTTP/1.0" : req->c_http_version, req->status, zstr(req->message) ? "Unset" : req->message);
     buf[blen] = '\0';
     apr_socket_send(req->conn->sock, buf, &blen);
 
