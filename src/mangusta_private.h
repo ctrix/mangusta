@@ -164,6 +164,7 @@ void mangusta_request_destroy(mangusta_request_t * req);
 apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangusta_request_state_e newstate);
 apr_status_t mangusta_request_parse_headers(mangusta_request_t * req);
 apr_status_t mangusta_request_has_payload(mangusta_request_t * req);
+apr_status_t mangusta_request_payload_received(mangusta_request_t * req);
 apr_status_t mangusta_request_header_set(mangusta_request_t * req, const char *name, const char *value);
 
 #ifndef strnstr

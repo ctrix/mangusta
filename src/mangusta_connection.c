@@ -35,9 +35,9 @@ static void on_read(mangusta_connection_t * conn) {
     rv = apr_socket_recv(conn->sock, b, &tot);
     if (rv == APR_SUCCESS) {
         mangusta_log(MANGUSTA_LOG_DEBUG, "[Read %zu bytes]", tot);
-/*
         b[tot] = '\0';
-        printf("************** %s\n", b);
+        printf("**************\n%s\n", b);
+/*
 */
         mangusta_buffer_append(conn->buffer_r, b, tot);
         return;
@@ -175,6 +175,15 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                                     // TODO TEST this condition
                                     mangusta_error_write(req);
                                     goto done;
+                                } else {
+                                    char *exp;
+                                    char *cont = "HTTP/1.1 100 Continue\r\n\r\n";
+                                    apr_size_t blen = strlen(cont);
+
+                                    if (((exp = mangusta_request_header_get(conn->current, "Expect")) != NULL) && (strstr(exp, "continue"))) {
+                                        mangusta_log(MANGUSTA_LOG_DEBUG, "Sending 100-continue");
+                                        apr_socket_send(conn->sock, cont, &blen);
+                                    }
                                 }
                             }
                         }
@@ -192,7 +201,11 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         continue;
                     } else if (conn->current->state == MANGUSTA_REQUEST_PAYLOAD) {
                         // TODO ASD + Add TEST
-                        assert(0);
+                        if (mangusta_request_payload_received(req) == APR_SUCCESS) {
+                            mangusta_log(MANGUSTA_LOG_DEBUG, "Mangusta Request Payload received");
+                            //assert(0);
+                        }
+
                     }
                     break;
                 case MANGUSTA_CONNECTION_RESPONSE:

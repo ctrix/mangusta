@@ -52,32 +52,38 @@ apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangus
     switch (req->state) {
         case MANGUSTA_REQUEST_INIT:
             if (newstate == MANGUSTA_REQUEST_HEADERS || newstate == MANGUSTA_RESPONSE_HEADERS) {
+                req->state = newstate;
                 return APR_SUCCESS;
             }
             break;
         case MANGUSTA_REQUEST_HEADERS:
             if (newstate == MANGUSTA_REQUEST_PAYLOAD || newstate == MANGUSTA_RESPONSE_HEADERS) {
+                req->state = newstate;
                 return APR_SUCCESS;
             }
             break;
         case MANGUSTA_REQUEST_PAYLOAD:
             if (newstate == MANGUSTA_RESPONSE_HEADERS) {
+                req->state = newstate;
                 return APR_SUCCESS;
             }
             break;
         case MANGUSTA_RESPONSE_HEADERS:
             if (newstate == MANGUSTA_RESPONSE_PAYLOAD || newstate == MANGUSTA_REQUEST_CLOSE) {
+                req->state = newstate;
                 return APR_SUCCESS;
             }
             break;
         case MANGUSTA_RESPONSE_PAYLOAD:
             if (newstate == MANGUSTA_REQUEST_CLOSE) {
+                req->state = newstate;
                 return APR_SUCCESS;
             }
             break;
         case MANGUSTA_REQUEST_CLOSE:
             break;
     }
+
     return APR_ERROR;
 }
 
@@ -212,7 +218,14 @@ APR_DECLARE(char *) mangusta_request_header_get(mangusta_request_t * req, const 
     assert(req);
 
     if (!zstr(name)) {
-        return apr_hash_get(req->headers, name, APR_HASH_KEY_STRING);
+        char *t;
+        char *lowername = strdup(name);
+        if (lowername != NULL) {
+            for (t = lowername; *t; ++t) {
+                *t = tolower(*t);
+            }
+            return apr_hash_get(req->headers, lowername, APR_HASH_KEY_STRING);
+        }
     }
     return NULL;
 }
@@ -243,9 +256,34 @@ apr_status_t mangusta_request_header_set(mangusta_request_t * req, const char *n
 
 apr_status_t mangusta_request_has_payload(mangusta_request_t * req) {
     /* https://tools.ietf.org/html/rfc7230#section-3.3 */
+
     if (mangusta_request_header_get(req, "Transfer-Encoding") || mangusta_request_header_get(req, "Content-Length")) {
         return APR_SUCCESS;
     }
+    return APR_ERROR;
+}
+
+apr_status_t mangusta_request_payload_received(mangusta_request_t * req) {
+    char *te = NULL;
+    apr_int64_t cl = 0;
+    apr_uint32_t blen;
+    char *bdata;
+
+    blen = mangusta_buffer_get_char(req->conn->buffer_r, &bdata);
+
+    te = mangusta_request_header_get(req, "Transfer-Encoding");
+
+    if (mangusta_request_header_get(req, "Content-Length")) {
+        cl = apr_strtoi64(mangusta_request_header_get(req, "Content-Length"), NULL, 0);
+    }
+
+    printf("--------- %d\n", blen);
+    printf("%s - %ld **\n", te, cl);
+
+    if ((te == NULL) && (cl <= blen)) {
+        return APR_SUCCESS;
+    }
+
     return APR_ERROR;
 }
 
@@ -331,6 +369,7 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
     char timebuf[APR_RFC822_DATE_LEN];
 
     if (req->status <= 0) {
+        mangusta_log(MANGUSTA_LOG_DEBUG, "Status cannot be ZERO. Please set one.");
         mangusta_response_status_set(req, 500, "Ooops! Something weird happened.");
         req->status = 500;
     }
