@@ -68,9 +68,9 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
 
         curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
 
+/*
         chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
         res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
-/*
 */
 
         res = curl_easy_perform(curl);
@@ -112,6 +112,9 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
 
 static apr_status_t on_headers_ready(mangusta_ctx_t * UNUSED(ctx), mangusta_request_t * req) {
     apr_status_t status = APR_SUCCESS;
+
+    (void) req;
+
 /*
     char *url;
     url = mangusta_request_url_get(req);

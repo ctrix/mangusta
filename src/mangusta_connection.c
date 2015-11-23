@@ -324,7 +324,7 @@ void mangusta_connection_destroy(mangusta_connection_t * conn) {
     return;
 }
 
-APR_DECLARE(apr_status_t) mangusta_connection_set_http_keepalive(mangusta_connection_t * conn, apr_size_t sec) {
+APR_DECLARE(apr_status_t) mangusta_connection_set_http_keepalive(mangusta_connection_t * conn, apr_int32_t sec) {
     assert(conn);
     conn->httpkeepalive = sec;
     return APR_SUCCESS;

@@ -45,7 +45,8 @@ apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_requ
 }
 
 void mangusta_request_destroy(mangusta_request_t * req) {
-    return apr_pool_destroy(req->pool);
+    apr_pool_destroy(req->pool);
+    return;
 }
 
 apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangusta_request_state_e newstate) {
@@ -422,6 +423,10 @@ apr_status_t mangusta_request_payload_received(mangusta_request_t * req) {
 #if MANGUSTA_DEBUG >= 1
         printf("--------- Payload was fully received\n");
 #endif
+        return APR_SUCCESS;
+    }
+
+    if ((te == NULL) && (cl <= blen)) {
         return APR_SUCCESS;
     }
 

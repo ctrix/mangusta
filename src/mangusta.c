@@ -77,7 +77,7 @@ APR_DECLARE(apr_status_t) mangusta_context_set_max_idle(mangusta_ctx_t * ctx, ap
     return APR_SUCCESS;
 }
 
-APR_DECLARE(apr_status_t) mangusta_context_set_http_keepalive(mangusta_ctx_t * ctx, apr_size_t sec) {
+APR_DECLARE(apr_status_t) mangusta_context_set_http_keepalive(mangusta_ctx_t * ctx, apr_int32_t sec) {
     assert(ctx && ctx->pool);
 
     ctx->httpkeepalive = sec;
@@ -232,7 +232,7 @@ APR_DECLARE(apr_status_t) mangusta_context_wait(mangusta_ctx_t * ctx) {
                             tpd->p = pool;
                             tpd->c = ctx;
                             tpd->s = sock;
-                            status = apr_thread_pool_push(ctx->tp, on_client_connect, tpd, APR_THREAD_TASK_PRIORITY_NORMAL, sock);
+                            status = apr_thread_pool_push(ctx->tp, (apr_thread_start_t) on_client_connect, tpd, APR_THREAD_TASK_PRIORITY_NORMAL, sock);
                         }
                     }
                 }

@@ -98,7 +98,7 @@ struct mangusta_ctx_s {
     int port;
     apr_size_t maxconn;
     apr_size_t maxidle;
-    short httpkeepalive;
+    apr_int32_t httpkeepalive;
     mangusta_ctx_connect_cb_f on_connect;
     mangusta_ctx_request_header_cb_f on_request_h;
     mangusta_ctx_request_ready_cb_f on_request_r;
