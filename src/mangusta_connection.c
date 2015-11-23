@@ -34,11 +34,10 @@ static void on_read(mangusta_connection_t * conn) {
 
     rv = apr_socket_recv(conn->sock, b, &tot);
     if (rv == APR_SUCCESS) {
+#if MANGUSTA_DEBUG >= 1
         mangusta_log(MANGUSTA_LOG_DEBUG, "[Read %zu bytes]", tot);
+#endif
         b[tot] = '\0';
-/*
-        printf("**************\n%s\n", b);
-*/
         mangusta_buffer_append(conn->buffer_r, b, tot);
         return;
     }
@@ -208,8 +207,11 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         if (mangusta_request_payload_received(req) == APR_SUCCESS) {
                             mangusta_log(MANGUSTA_LOG_DEBUG, "Mangusta Request Payload received");
                             //assert(0);
+                            assert(mangusta_request_state_change(req, MANGUSTA_RESPONSE_HEADERS) == APR_SUCCESS);
+                            conn->state = MANGUSTA_CONNECTION_RESPONSE;
+                            skip_poll = 1;
+                            continue;
                         }
-
                     }
                     break;
                 case MANGUSTA_CONNECTION_RESPONSE:

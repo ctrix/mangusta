@@ -280,6 +280,79 @@ apr_status_t mangusta_request_has_payload(mangusta_request_t * req) {
     return APR_ERROR;
 }
 
+static apr_status_t request_chuncked_parse_buffer(mangusta_request_t * req, mangusta_buffer_t * in) {
+    apr_status_t status = APR_EAGAIN;
+    char *b;
+    apr_uint32_t blen;
+    char *bdata;
+    apr_int64_t total;
+    apr_int64_t received;
+    apr_int64_t left;
+    apr_int64_t toread;
+
+    blen = mangusta_buffer_get_char(in, &bdata);
+
+    total = req->ch_len;
+    received = req->ch_received;
+    left = total - received;
+
+    toread = (blen < left) ? blen : left;
+    if (total == 0) {
+        /* We have to read the chunk len */
+        char line[16];
+        if (mangusta_buffer_extract(in, line, sizeof(line) - 1, '\n') == APR_SUCCESS) {
+            req->ch_len = total = apr_strtoi64(line, NULL, 16);
+            req->ch_received = received = 0;
+
+            blen = mangusta_buffer_get_char(in, &bdata);
+
+            if (req->ch_len == 0) {
+                /* Parsing is over */
+                // TODO We must set something .. ? 
+                status = APR_SUCCESS;
+                goto done;
+            }
+        }
+
+    }
+
+    if (total > 0) {
+        /* We must read the chunk! blen has already been updated */
+        left = total - received;
+        toread = (blen < left) ? blen : left;
+
+        b = malloc(toread);
+
+        if (b != NULL) {
+            if (mangusta_buffer_read(in, b, toread) == APR_SUCCESS) {
+                if (mangusta_buffer_append(req->request, b, toread) == APR_SUCCESS) {
+                    req->ch_received += toread;
+                    received = req->ch_received;
+                    left = total - received;
+
+                    if (req->ch_received == req->ch_len) {
+                        mangusta_buffer_read(in, b, 2);
+                        req->ch_received = req->ch_len = 0;
+                    }
+
+                    blen = mangusta_buffer_get_char(in, &bdata);
+
+                    if (blen > 0) {
+                        status = APR_EAGAIN;
+                    } else {
+                        status = APR_EINCOMPLETE;
+                    }
+                }
+            }
+            free(b);
+        }
+
+    }
+
+ done:
+    return status;
+}
+
 APR_DECLARE(apr_status_t) mangusta_request_feed(mangusta_request_t * req, mangusta_buffer_t * in) {
     apr_status_t status = APR_ERROR;
     apr_uint32_t blen;
@@ -287,17 +360,20 @@ APR_DECLARE(apr_status_t) mangusta_request_feed(mangusta_request_t * req, mangus
 
     blen = mangusta_buffer_get_char(in, &bdata);
 
-    printf("--------- %d\n", blen);
-
     if (blen > 0) {
         char *b;
-        apr_int64_t left = req->cl_total - req->cl_received;
+        apr_int64_t total;
+        apr_int64_t received;
+        apr_int64_t left;
         apr_int64_t toread;
 
-        toread = (blen < left) ? blen : left;
-
         if (req->chunked == 0) {
-            /* Empty data from the connection buffer to the request buffer */
+            // Empty data from the connection buffer to the request buffer
+            total = req->cl_total;
+            received = req->cl_received;
+            left = total - received;
+            toread = (blen < left) ? blen : left;
+
             b = malloc(toread);
 
             if (b != NULL) {
@@ -309,14 +385,15 @@ APR_DECLARE(apr_status_t) mangusta_request_feed(mangusta_request_t * req, mangus
                 }
                 free(b);
             }
-        } else if ((req->chunked == 0) && (req->cl_total - req->cl_received) > 0) {
-
+        } else if (req->chunked == 1) {
+            do {
+            } while ((status = request_chuncked_parse_buffer(req, in)) == APR_EAGAIN);
+            if (status == APR_SUCCESS) {
+                /* The content has been received */
+                req->chunk_done = 1;
+            }
+            status = APR_SUCCESS;   // TODO ??
         }
-
-        printf("Total: %ld  Read: %ld   Left: %ld  Now: %ld \n", req->cl_total, req->cl_received, left, toread);
-
-    } else {
-        printf("--------- %d ZERO!\n", blen);
     }
 
     return status;
@@ -336,13 +413,15 @@ apr_status_t mangusta_request_payload_received(mangusta_request_t * req) {
         cl = apr_strtoi64(mangusta_request_header_get(req, "Content-Length"), NULL, 0);
     }
 
-/*
-    printf("--------- %d\n", blen);
-    printf("%s - %ld **\n", te, cl);
-*/
-
-    if ((te == NULL) && (blen == cl )) {
-	printf("--------- Payload was fully received\n");
+    if ((te == NULL) && (blen == cl)) {
+#if MANGUSTA_DEBUG >= 1
+        printf("--------- Payload was fully received\n");
+#endif
+        return APR_SUCCESS;
+    } else if (req->chunk_done != 0) {
+#if MANGUSTA_DEBUG >= 1
+        printf("--------- Payload was fully received\n");
+#endif
         return APR_SUCCESS;
     }
 

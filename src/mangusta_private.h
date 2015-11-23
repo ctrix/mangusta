@@ -14,7 +14,7 @@
 #include "apr_queue.h"
 #include "apr_thread_pool.h"
 
-#define MANGUSTA_DEBUG 9
+#define MANGUSTA_DEBUG 0
 
 #define zstr(x)  ( ((x==NULL) || (*x == '\0')) ? 1 : 0)
 
@@ -158,6 +158,9 @@ struct mangusta_request_s {
     apr_int64_t cl_total;
     apr_int64_t cl_received;
     short chunked;
+    apr_int64_t ch_len;
+    apr_int64_t ch_received;
+    short chunk_done;
 };
 
 mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock);

@@ -46,7 +46,7 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Test suite");
         /*curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE); */
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, ver);
-        curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+        curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
         curl_easy_setopt(curl, CURLOPT_URL, url);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &curl_dummy_write);
 
@@ -82,9 +82,9 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
             res = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &rc);
             res = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ct);
 
+/*
             printf("STATUS: %ld\n", rc);
 
-/*
             if (strstr(url, "test3") != NULL) {
                 assert_int_equal(rc, 400);
             } else if (strstr(url, "test4") != NULL) {
@@ -93,6 +93,8 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
                 assert_int_equal(rc, 200);
             }
 */
+
+            mangusta_context_stop(ctx);
 
         } else {
             assert_int_equal(res, CURLE_OK);
