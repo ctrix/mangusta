@@ -129,7 +129,7 @@ APR_DECLARE(apr_status_t) mangusta_context_set_host(mangusta_ctx_t * ctx, const 
 APR_DECLARE(apr_status_t) mangusta_context_set_port(mangusta_ctx_t * ctx, int port);
 APR_DECLARE(apr_status_t) mangusta_context_set_max_connections(mangusta_ctx_t * ctx, apr_size_t max);
 APR_DECLARE(apr_status_t) mangusta_context_set_max_idle(mangusta_ctx_t * ctx, apr_size_t max);
-APR_DECLARE(apr_status_t) mangusta_context_set_http_keepalive(mangusta_ctx_t * ctx, apr_size_t sec);
+APR_DECLARE(apr_status_t) mangusta_context_set_http_keepalive(mangusta_ctx_t * ctx, apr_int32_t sec);
 
 APR_DECLARE(apr_status_t) mangusta_context_set_connect_cb(mangusta_ctx_t * ctx, mangusta_ctx_connect_cb_f cb);
 APR_DECLARE(apr_status_t) mangusta_context_set_request_header_cb(mangusta_ctx_t * ctx, mangusta_ctx_request_header_cb_f cb);
@@ -142,7 +142,7 @@ APR_DECLARE(apr_status_t) mangusta_context_running(mangusta_ctx_t * ctx);
 APR_DECLARE(apr_status_t) mangusta_context_stop(mangusta_ctx_t * ctx);
 APR_DECLARE(apr_status_t) mangusta_context_free(mangusta_ctx_t * ctx);
 
-APR_DECLARE(apr_status_t) mangusta_connection_set_http_keepalive(mangusta_connection_t * conn, apr_size_t sec);
+APR_DECLARE(apr_status_t) mangusta_connection_set_http_keepalive(mangusta_connection_t * conn, apr_int32_t sec);
 
 APR_DECLARE(char *) mangusta_request_header_get(mangusta_request_t * req, const char *name);
 APR_DECLARE(char *) mangusta_request_method_get(mangusta_request_t * req);

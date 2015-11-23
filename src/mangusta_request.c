@@ -44,8 +44,9 @@ apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_requ
     return APR_ERROR;
 }
 
-void mangusta_request_destroy(mangusta_request_t * req) {
-    return apr_pool_destroy(req->pool);
+static void mangusta_request_destroy(mangusta_request_t * req) {
+    apr_pool_destroy(req->pool);
+	return;
 }
 
 apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangusta_request_state_e newstate) {
@@ -276,9 +277,6 @@ apr_status_t mangusta_request_payload_received(mangusta_request_t * req) {
     if (mangusta_request_header_get(req, "Content-Length")) {
         cl = apr_strtoi64(mangusta_request_header_get(req, "Content-Length"), NULL, 0);
     }
-
-    printf("--------- %d\n", blen);
-    printf("%s - %ld **\n", te, cl);
 
     if ((te == NULL) && (cl <= blen)) {
         return APR_SUCCESS;
