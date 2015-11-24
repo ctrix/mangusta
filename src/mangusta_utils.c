@@ -56,6 +56,7 @@ apr_status_t chomp(char *buffer, size_t length) {
     return APR_SUCCESS;
 }
 
+/*
 int mg_url_decode(const char *src, int src_len, char *dst, int dst_len, int is_form_url_encoded) {
     int i, j, a, b;
 #define HEXTOI(x) (isdigit(x) ? x - '0' : x - 'W')
@@ -77,6 +78,7 @@ int mg_url_decode(const char *src, int src_len, char *dst, int dst_len, int is_f
 
     return i >= src_len ? j : -1;
 }
+*/
 
 // Protect against directory disclosure attack by removing '..',
 // excessive '/' and '\' characters
@@ -99,4 +101,194 @@ void remove_double_dots_and_double_slashes(char *s) {
         }
     }
     *p = '\0';
+}
+
+APR_DECLARE(char *) mangusta_html_specialchars(apr_pool_t * pool, const char *in) {
+    char *p;
+    char *ret = NULL, *tmp;
+    mangusta_buffer_t *buf;
+
+    if (in == NULL || pool == NULL) {
+        return (char *) in;
+    }
+
+    buf = mangusta_buffer_init(pool, 0, strlen(in) * 2);
+    if (buf == NULL) {
+        return NULL;
+    }
+
+    /*
+       " &quot
+       & &amp
+       ' &#039;
+       < &lt;
+       > &gt;
+     */
+
+    p = (char *) in;
+    while (p && *p) {
+        if (*p == '\'') {
+            mangusta_buffer_append(buf, "&#039;", 6);
+        } else if (*p == '"') {
+            mangusta_buffer_append(buf, "&quot;", 6);
+        } else if (*p == '&') {
+            mangusta_buffer_append(buf, "&amp;", 5);
+        } else if (*p == '<') {
+            mangusta_buffer_append(buf, "&lt;", 4);
+        } else if (*p == '>') {
+            mangusta_buffer_append(buf, "&gt;", 4);
+        } else {
+            mangusta_buffer_appendc(buf, *p);
+        }
+        p++;
+    }
+
+    mangusta_buffer_appendc(buf, '\0');
+
+    if (mangusta_buffer_get_char(buf, &tmp) > 0) {
+        ret = apr_pstrdup(pool, tmp);
+    }
+
+    mangusta_buffer_destroy(buf);
+
+    return ret;
+}
+
+APR_DECLARE(char *) mangusta_urldecode(apr_pool_t * pool, const char *intext) {
+    char *outtext;
+    char *cp, *xp;
+
+    if (intext == NULL) {
+        return NULL;
+    }
+
+    outtext = apr_pstrdup(pool, intext);
+
+    for (cp = outtext, xp = outtext; *cp; cp++) {
+
+        if (*cp == '%') {
+            if (strchr("0123456789ABCDEFabcdef", *(cp + 1))
+                && strchr("0123456789ABCDEFabcdef", *(cp + 2))
+                ) {
+                if (apr_islower((int) *(cp + 1)))
+                    *(cp + 1) = apr_toupper((int) *(cp + 1));
+                if (apr_islower((int) *(cp + 2)))
+                    *(cp + 2) = apr_toupper((int) *(cp + 2));
+                *(xp) = (*(cp + 1) >= 'A' ? *(cp + 1) - 'A' + 10 : *(cp + 1) - '0') * 16 + (*(cp + 2) >= 'A' ? *(cp + 2) - 'A' + 10 : *(cp + 2) - '0');
+                xp++;
+                cp += 2;
+            }
+        } else {
+            *xp = *cp;
+            xp++;
+        }
+
+    }
+
+    memset(xp, 0, cp - xp);
+
+    return outtext;
+}
+
+APR_DECLARE(char *) mangusta_urlencode(apr_pool_t * pool, const char *var) {
+    int c;
+    char *source;
+    char *dest;
+    char *ret;
+    int dest_len = 0;
+    char *hex = "0123456789abcdef";
+
+    assert(var);
+
+    source = (char *) var;
+    dest_len = strlen(source) + 1;
+    while (source && *source) {
+        c = *source;
+
+        if (('a' <= c && c <= 'z')
+            || ('A' <= c && c <= 'Z')
+            || ('0' <= c && c <= '9')
+            ) {
+            /* OK */
+        } else {
+            dest_len += 2;
+        }
+        source++;
+    }
+
+    source = (char *) var;
+    ret = dest = apr_pcalloc(pool, dest_len + 1);
+    if (!dest) {
+        return NULL;
+    }
+
+    while (source && *source) {
+        c = *source;
+
+        if (('a' <= c && c <= 'z')
+            || ('A' <= c && c <= 'Z')
+            || ('0' <= c && c <= '9')
+            ) {
+            *dest++ = *source;
+        } else {
+            *dest++ = '%';
+            *dest++ = hex[c >> 4];
+            *dest++ = hex[c & 15];
+        }
+        source++;
+    }
+    *dest++ = '\0';
+
+    return ret;
+}
+
+/* This function kindly inspired from anthm - Freeswitch */
+APR_DECLARE(apr_size_t) apr_separate_string(char *buf, char delim, char **array, apr_size_t arraylen) {
+//APR_DECLARE(unsigned int) apr_separate_string(char *buf, char delim, char **array, unsigned int arraylen) {
+    apr_size_t argc;
+    char *ptr;
+    int quot = 0;
+    char qc = '"';
+    char *e;
+    unsigned int x;
+
+    if (!buf || !array || !arraylen) {
+        return 0;
+    }
+
+    memset(array, 0, arraylen * sizeof(*array));
+
+    ptr = buf;
+
+    for (argc = 0; *ptr && (argc < arraylen - 1); argc++) {
+        array[argc] = ptr;
+        for (; *ptr; ptr++) {
+            if (*ptr == qc) {
+                if (quot) {
+                    quot--;
+                } else {
+                    quot++;
+                }
+            } else if ((*ptr == delim) && !quot) {
+                *ptr++ = '\0';
+                break;
+            }
+        }
+    }
+
+    if (*ptr) {
+        array[argc++] = ptr;
+    }
+
+    /* strip quotes */
+    for (x = 0; x < argc; x++) {
+        if (*(array[x]) == qc) {
+            (array[x])++;
+            if ((e = strchr(array[x], qc))) {
+                *e = '\0';
+            }
+        }
+    }
+
+    return argc;
 }

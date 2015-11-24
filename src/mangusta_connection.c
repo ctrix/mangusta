@@ -168,6 +168,8 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                             mangusta_error_write(req);
                             goto done;
                         } else {
+                            mangusta_request_extract_querystring(req);
+
                             if (conn->ctx->on_request_h != NULL) {
                                 if (conn->ctx->on_request_h(conn->ctx, req) != APR_SUCCESS) {
                                     /* We're asked to stop and disconnect with a 400 Bad Request TODO */

@@ -147,7 +147,10 @@ APR_DECLARE(apr_status_t) mangusta_connection_set_http_keepalive(mangusta_connec
 APR_DECLARE(char *) mangusta_request_header_get(mangusta_request_t * req, const char *name);
 APR_DECLARE(char *) mangusta_request_method_get(mangusta_request_t * req);
 APR_DECLARE(char *) mangusta_request_url_get(mangusta_request_t * req);
+APR_DECLARE(char *) mangusta_request_querystring_get(mangusta_request_t * req);
 APR_DECLARE(char *) mangusta_request_protoversion_get(mangusta_request_t * req);
+APR_DECLARE(char *) mangusta_request_getvar(mangusta_request_t * req, const char *name);
+APR_DECLARE(char *) mangusta_request_postvar(mangusta_request_t * req, const char *name);
 
 APR_DECLARE(apr_status_t) mangusta_response_status_set(mangusta_request_t * req, short status, const char *message);
 APR_DECLARE(apr_status_t) mangusta_response_header_del(mangusta_request_t * req, const char *name);
@@ -159,5 +162,10 @@ APR_DECLARE(apr_status_t) mangusta_response_body_appendf(mangusta_request_t * re
 APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req);
 
 APR_DECLARE(apr_status_t) mangusta_error_write(mangusta_request_t * req);
+
+APR_DECLARE(char *) mangusta_html_specialchars(apr_pool_t * pool, const char *in);
+APR_DECLARE(char *) mangusta_urldecode(apr_pool_t * pool, const char *intext);
+APR_DECLARE(char *) mangusta_urlencode(apr_pool_t * pool, const char *var);
+APR_DECLARE(apr_size_t) apr_separate_string(char *buf, char delim, char **array, apr_size_t arraylen);
 
 #endif

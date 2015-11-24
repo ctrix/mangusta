@@ -3,12 +3,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <ctype.h>
 #include "stdarg.h"
 
 #include "mangusta.h"
 #include "mangusta_buffer.h"
 
+#include "apr_lib.h"
 #include "apr_poll.h"
 #include "apr_hash.h"
 #include "apr_queue.h"
@@ -51,47 +51,6 @@ enum mangusta_http_version_e {
     MANGUSTA_HTTP_11,
     MANGUSTA_HTTP_20
 };
-
-enum mangusta_request_method_e {
-    MANGUSTA_METHOD_GET,
-    MANGUSTA_METHOD_HEAD,
-    MANGUSTA_METHOD_CONNECT,
-    MANGUSTA_METHOD_POST,
-    MANGUSTA_METHOD_PUT,
-    MANGUSTA_METHOD_DELETE,
-    MANGUSTA_METHOD_OPTIONS,
-    MANGUSTA_METHOD_PROPFIND,
-    MANGUSTA_METHOD_MKCOL,
-    MANGUSTA_METHOD_OTHER
-};
-
-/*
-static struct {
-    enum mangusta_request_method_e method;
-    char *name;
-} mangusta_request_names[] = {
-    {
-    MANGUSTA_METHOD_GET, "GET"}, {
-    MANGUSTA_METHOD_HEAD, "HEAD"}, {
-    MANGUSTA_METHOD_CONNECT, "CONNECT"}, {
-    MANGUSTA_METHOD_POST, "POST"}, {
-    MANGUSTA_METHOD_PUT, "PUT"}, {
-    MANGUSTA_METHOD_DELETE, "DELETE"}, {
-    MANGUSTA_METHOD_OPTIONS, "OPTIONS"}, {
-    MANGUSTA_METHOD_PROPFIND, "PROPFIND"}, {
-    MANGUSTA_METHOD_MKCOL, "MKCOL"}, {
-    MANGUSTA_METHOD_OTHER, NULL}
-};
-*/
-
-enum mangusta_payload_type_e {
-    MANGUSTA_PAYLOAD_RAW,
-    MANGUSTA_PAYLOAD_MULTIPART,
-    MANGUSTA_PAYLOAD_BOH,
-};
-
-//struct mangusta_http_methods
-//struct mangusta_http_responses
 
 struct mangusta_ctx_s {
     const char *host;
@@ -141,10 +100,13 @@ struct mangusta_request_s {
     enum mangusta_request_state_e state;
 
     char *c_method;
-    enum mangusta_request_method_e method;
     char *url;
     char *c_http_version;
     enum mangusta_http_version_e http_version;
+    char *query_string;
+
+    apr_hash_t *getvars;
+    apr_hash_t *postvars;
 
     apr_hash_t *headers;
     mangusta_buffer_t *request;
@@ -171,6 +133,7 @@ apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_requ
 void mangusta_request_destroy(mangusta_request_t * req);
 apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangusta_request_state_e newstate);
 apr_status_t mangusta_request_parse_headers(mangusta_request_t * req);
+apr_status_t mangusta_request_extract_querystring(mangusta_request_t * req);
 apr_status_t mangusta_request_has_payload(mangusta_request_t * req);
 APR_DECLARE(apr_status_t) mangusta_request_feed(mangusta_request_t * req, mangusta_buffer_t * in);
 apr_status_t mangusta_request_payload_received(mangusta_request_t * req);

@@ -221,6 +221,46 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
     return APR_INCOMPLETE;
 }
 
+apr_status_t mangusta_request_extract_querystring(mangusta_request_t * req) {
+    char *sep;
+    /*
+       Extract the query string and parse the parameters, if present.
+     */
+    if ((sep = strchr(req->url, '?')) != NULL) {
+        apr_size_t qsize = strlen(++sep) / 2 + 1;
+        char **qlines = apr_pcalloc(req->pool, sizeof(char *) * qsize);;
+
+        req->query_string = apr_pstrdup(req->pool, sep);
+
+	sep = apr_pstrdup(req->pool, req->query_string);
+
+        if (apr_separate_string(sep, '&', qlines, qsize) != 0) {
+            char *n;
+            char *v;
+            apr_size_t t;
+
+            for (t = 0; t < qsize; t++) {
+                n = qlines[t];
+
+                if (n != NULL) {
+                    v = strchr(n, '=');
+                    if (v != NULL) {
+                        *(v++) = '\0';
+                        //printf("%s => %s ---\n", mangusta_urldecode(req->pool, n), mangusta_urldecode(req->pool, v));
+                        if (req->getvars == NULL) {
+                            req->getvars = apr_hash_make(req->pool);
+                        }
+
+                        apr_hash_set(req->getvars, mangusta_urldecode(req->pool, n), APR_HASH_KEY_STRING, mangusta_urldecode(req->pool, v));
+                    }
+                }
+            }
+        }
+    }
+
+    return APR_SUCCESS;
+}
+
 APR_DECLARE(char *) mangusta_request_header_get(mangusta_request_t * req, const char *name) {
     assert(req);
 
@@ -247,9 +287,34 @@ APR_DECLARE(char *) mangusta_request_url_get(mangusta_request_t * req) {
     return req->url;
 }
 
+APR_DECLARE(char *) mangusta_request_querystring_get(mangusta_request_t * req) {
+    assert(req);
+    return req->query_string;
+}
+
 APR_DECLARE(char *) mangusta_request_protoversion_get(mangusta_request_t * req) {
     assert(req);
     return req->c_http_version;
+}
+
+APR_DECLARE(char *) mangusta_request_getvar(mangusta_request_t * req, const char *name) {
+    assert(req);
+
+    if ( req->getvars == NULL ){
+	return NULL;
+    }
+
+    return apr_hash_get(req->getvars, name, APR_HASH_KEY_STRING);
+}
+
+APR_DECLARE(char *) mangusta_request_postvar(mangusta_request_t * req, const char *name) {
+    assert(req);
+
+    if ( req->postvars == NULL ){
+	return NULL;
+    }
+
+    return apr_hash_get(req->postvars, name, APR_HASH_KEY_STRING);
 }
 
 apr_status_t mangusta_request_header_set(mangusta_request_t * req, const char *name, const char *value) {
