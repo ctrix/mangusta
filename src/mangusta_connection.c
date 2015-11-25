@@ -115,6 +115,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
     conn->terminated = 0;
 
     while (!conn->terminated) {
+        char *ctype;
         apr_int32_t num;
         const apr_pollfd_t *ret_pfd;
 
@@ -224,6 +225,13 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 
                        If no callback is set, then the default is to reply with a 500 Internal Server Error
                      */
+                    ctype = mangusta_request_header_get(req, "Content-Type");
+                    if (ctype != NULL) {
+                        if (strncmp(ctype, "application/x-www-form-urlencoded", sizeof("application/x-www-form-urlencoded")) == 0) {
+                            mangusta_request_extract_form_urlencoded(req);
+                        }
+                    }
+
                     if (conn->ctx->on_request_r != NULL) {
                         if (conn->ctx->on_request_r(conn->ctx, req) != APR_SUCCESS) {
                             // TODO TEST this condition

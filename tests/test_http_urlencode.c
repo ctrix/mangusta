@@ -23,7 +23,7 @@
 #define URL1 "/test1"
 #define URL2 "/test2"
 #define URL3 "/test3"
-#define PARAMS "a=1&B=2&c=3&name=1%202"
+#define PARAMS "a=1&B=2&c=3&name=1%202&d="
 
 #define URL_BASE "http://" MANGUSTA_TEST_BINDTO ":" MANGUSTA_TEST_BINDPORT
 
@@ -34,7 +34,7 @@ size_t curl_dummy_write(char *UNUSED(ptr), size_t size, size_t nmemb, void *UNUS
     return size * nmemb;
 }
 
-static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const char *method) {
+static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const char *method, short multipart) {
     CURL *curl;
     CURLcode res;
 
@@ -47,7 +47,7 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Test suite");
         /*curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE); */
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, ver);
-        curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+        curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
         curl_easy_setopt(curl, CURLOPT_URL, url);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &curl_dummy_write);
 
@@ -55,10 +55,16 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
             /* Nothing to do */
         } else if (!strcmp(method, "POST")) {
             curl_easy_setopt(curl, CURLOPT_POST, 1L);
-            curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "sendfile", CURLFORM_FILE, __FILE__, CURLFORM_END);
-            curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "filename", CURLFORM_COPYCONTENTS, __FILE__, CURLFORM_END);
-            curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "submit", CURLFORM_COPYCONTENTS, "send", CURLFORM_END);
-            curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
+            if (multipart != 0) {
+                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "sendfile", CURLFORM_FILE, __FILE__, CURLFORM_END);
+                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "filename", CURLFORM_COPYCONTENTS, __FILE__, CURLFORM_END);
+                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "submit", CURLFORM_COPYCONTENTS, "send", CURLFORM_END);
+                curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
+            } else {
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) strlen(PARAMS));
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDS, PARAMS);
+            }
+
         } else if (!strcmp(method, "DELETE")) {
             curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
         } else {
@@ -79,7 +85,6 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
 
             assert_int_equal(rc, 200);
 
-
         } else {
             assert_int_equal(res, CURLE_OK);
         }
@@ -99,30 +104,41 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
 
 static apr_status_t on_headers_ready(mangusta_ctx_t * UNUSED(ctx), mangusta_request_t * req) {
     apr_status_t status = APR_SUCCESS;
+    char *method;
 
-    (void) req;
-/*
-    char *url;
-    url = mangusta_request_url_get(req);
-*/
-    assert_string_equal(mangusta_request_getvar(req, "a"), "1");
-    assert_null(mangusta_request_getvar(req, "b"));
-    assert_string_equal(mangusta_request_getvar(req, "B"), "2");
-    assert_string_equal(mangusta_request_getvar(req, "c"), "3");
+    method = mangusta_request_method_get(req);
+
+    if (strcmp(method, "GET") == 0) {
+        assert_string_equal(mangusta_request_getvar(req, "a"), "1");
+        assert_null(mangusta_request_getvar(req, "b"));
+        assert_string_equal(mangusta_request_getvar(req, "B"), "2");
+        assert_string_equal(mangusta_request_getvar(req, "c"), "3");
+        assert_string_equal(mangusta_request_getvar(req, "d"), "");
+    }
 
     return status;
 }
 
 static apr_status_t on_request_ready(mangusta_ctx_t * ctx, mangusta_request_t * req) {
     char *url;
+    char *method;
     apr_status_t status = APR_SUCCESS;
 
     (void) ctx;
     url = mangusta_request_url_get(req);
 
+    method = mangusta_request_method_get(req);
     mangusta_response_status_set(req, 200, "OK Pass");
 
-    printf("Done: %s\n", url);
+    printf("Done: %s %s\n", method, url);
+
+    if (strcmp(method, "POST") == 0) {
+        assert_string_equal(mangusta_request_postvar(req, "a"), "1");
+        assert_null(mangusta_request_postvar(req, "b"));
+        assert_string_equal(mangusta_request_postvar(req, "B"), "2");
+        assert_string_equal(mangusta_request_postvar(req, "c"), "3");
+        assert_string_equal(mangusta_request_postvar(req, "d"), "");
+    }
 
     return status;
 }
@@ -133,12 +149,16 @@ static void test_perform(void **UNUSED(foo)) {
     assert_int_equal(mangusta_context_set_request_header_cb(ctx, on_headers_ready), APR_SUCCESS);
     assert_int_equal(mangusta_context_set_request_ready_cb(ctx, on_request_ready), APR_SUCCESS);
 
-    curl_perform(ctx, URL_BASE URL1 "?" PARAMS, CURL_HTTP_VERSION_1_0, "GET");
-    curl_perform(ctx, URL_BASE URL1 "?" PARAMS, CURL_HTTP_VERSION_1_1, "GET");
-    curl_perform(ctx, URL_BASE URL2 "?" PARAMS, CURL_HTTP_VERSION_1_0, "POST");
-    curl_perform(ctx, URL_BASE URL2 "?" PARAMS, CURL_HTTP_VERSION_1_1, "POST");
+    curl_perform(ctx, URL_BASE URL1 "?" PARAMS, CURL_HTTP_VERSION_1_0, "GET", 0);
+    curl_perform(ctx, URL_BASE URL1 "?" PARAMS, CURL_HTTP_VERSION_1_1, "GET", 0);
+    curl_perform(ctx, URL_BASE URL2, CURL_HTTP_VERSION_1_0, "POST", 0);
+    curl_perform(ctx, URL_BASE URL2, CURL_HTTP_VERSION_1_1, "POST", 0);
+/*
     must_shutdown = 1;
-    curl_perform(ctx, URL_BASE URL3 "?" PARAMS, CURL_HTTP_VERSION_1_1, "DELETE");
+    curl_perform(ctx, URL_BASE URL2, CURL_HTTP_VERSION_1_1, "POST", 1);
+*/
+    must_shutdown = 1;
+    curl_perform(ctx, URL_BASE URL3 "?" PARAMS, CURL_HTTP_VERSION_1_1, "DELETE", 0);
 
     while (mangusta_context_running(ctx) == APR_SUCCESS) {
         apr_sleep(APR_USEC_PER_SEC / 20);

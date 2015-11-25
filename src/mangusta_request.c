@@ -221,6 +221,26 @@ apr_status_t mangusta_request_parse_headers(mangusta_request_t * req) {
     return APR_INCOMPLETE;
 }
 
+static void separate_form_urlencoded(mangusta_request_t * req, apr_hash_t * table, char *buf, apr_size_t qsize, char **qlines) {
+    if (apr_separate_string(buf, '&', qlines, qsize) != 0) {
+        char *n;
+        char *v;
+        apr_size_t t;
+
+        for (t = 0; t < qsize; t++) {
+            n = qlines[t];
+
+            if (n != NULL) {
+                v = strchr(n, '=');
+                if (v != NULL) {
+                    *(v++) = '\0';
+                    apr_hash_set(table, mangusta_urldecode(req->pool, n), APR_HASH_KEY_STRING, mangusta_urldecode(req->pool, v));
+                }
+            }
+        }
+    }
+}
+
 apr_status_t mangusta_request_extract_querystring(mangusta_request_t * req) {
     char *sep;
     /*
@@ -231,32 +251,39 @@ apr_status_t mangusta_request_extract_querystring(mangusta_request_t * req) {
         char **qlines = apr_pcalloc(req->pool, sizeof(char *) * qsize);;
 
         req->query_string = apr_pstrdup(req->pool, sep);
+        sep = apr_pstrdup(req->pool, req->query_string);
 
-	sep = apr_pstrdup(req->pool, req->query_string);
-
-        if (apr_separate_string(sep, '&', qlines, qsize) != 0) {
-            char *n;
-            char *v;
-            apr_size_t t;
-
-            for (t = 0; t < qsize; t++) {
-                n = qlines[t];
-
-                if (n != NULL) {
-                    v = strchr(n, '=');
-                    if (v != NULL) {
-                        *(v++) = '\0';
-                        //printf("%s => %s ---\n", mangusta_urldecode(req->pool, n), mangusta_urldecode(req->pool, v));
-                        if (req->getvars == NULL) {
-                            req->getvars = apr_hash_make(req->pool);
-                        }
-
-                        apr_hash_set(req->getvars, mangusta_urldecode(req->pool, n), APR_HASH_KEY_STRING, mangusta_urldecode(req->pool, v));
-                    }
-                }
-            }
+        if (req->getvars == NULL) {
+            req->getvars = apr_hash_make(req->pool);
         }
+
+        separate_form_urlencoded(req, req->getvars, sep, qsize, qlines);
     }
+
+    return APR_SUCCESS;
+}
+
+apr_status_t mangusta_request_extract_form_urlencoded(mangusta_request_t * req) {
+    apr_size_t blen;
+    char *bdata;
+    apr_size_t qsize;
+    char **qlines;
+    char *sep;
+
+    blen = mangusta_buffer_get_char(req->request, &bdata);
+
+    /* apr_pcalloc zeroes the memory */
+    sep = apr_pcalloc(req->pool, blen + 1);
+    memcpy(sep, bdata, blen);
+
+    qsize = strlen(sep) / 2 + 1;
+    qlines = apr_pcalloc(req->pool, sizeof(char *) * qsize);;
+
+    if (req->postvars == NULL) {
+        req->postvars = apr_hash_make(req->pool);
+    }
+
+    separate_form_urlencoded(req, req->postvars, sep, qsize, qlines);
 
     return APR_SUCCESS;
 }
@@ -300,8 +327,8 @@ APR_DECLARE(char *) mangusta_request_protoversion_get(mangusta_request_t * req) 
 APR_DECLARE(char *) mangusta_request_getvar(mangusta_request_t * req, const char *name) {
     assert(req);
 
-    if ( req->getvars == NULL ){
-	return NULL;
+    if (req->getvars == NULL) {
+        return NULL;
     }
 
     return apr_hash_get(req->getvars, name, APR_HASH_KEY_STRING);
@@ -310,8 +337,8 @@ APR_DECLARE(char *) mangusta_request_getvar(mangusta_request_t * req, const char
 APR_DECLARE(char *) mangusta_request_postvar(mangusta_request_t * req, const char *name) {
     assert(req);
 
-    if ( req->postvars == NULL ){
-	return NULL;
+    if (req->postvars == NULL) {
+        return NULL;
     }
 
     return apr_hash_get(req->postvars, name, APR_HASH_KEY_STRING);
@@ -419,7 +446,7 @@ static apr_status_t request_chuncked_parse_buffer(mangusta_request_t * req, mang
     return status;
 }
 
-APR_DECLARE(apr_status_t) mangusta_request_feed(mangusta_request_t * req, mangusta_buffer_t * in) {
+apr_status_t mangusta_request_feed(mangusta_request_t * req, mangusta_buffer_t * in) {
     apr_status_t status = APR_ERROR;
     apr_uint32_t blen;
     char *bdata;
@@ -439,7 +466,6 @@ APR_DECLARE(apr_status_t) mangusta_request_feed(mangusta_request_t * req, mangus
             received = req->cl_received;
             left = total - received;
             toread = (blen < left) ? blen : left;
-
             b = malloc(toread);
 
             if (b != NULL) {
