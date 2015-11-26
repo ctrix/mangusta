@@ -230,6 +230,10 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         if (strncmp(ctype, "application/x-www-form-urlencoded", sizeof("application/x-www-form-urlencoded")) == 0) {
                             mangusta_request_extract_form_urlencoded(req);
                         }
+
+                        if (strncmp(ctype, "multipart/form-data", sizeof("multipart/form-data") - 1) == 0) {
+                            mangusta_request_extract_multipart(req);
+                        }
                     }
 
                     if (conn->ctx->on_request_r != NULL) {

@@ -288,6 +288,242 @@ apr_status_t mangusta_request_extract_form_urlencoded(mangusta_request_t * req) 
     return APR_SUCCESS;
 }
 
+static apr_status_t mangusta_request_parse_multipart_part(mangusta_request_t * req, char *part, char *partend, char *boundary) {
+    char *ctype, *name, *fname;
+    char *headerend;
+    char *bodystart;
+    char *linestart;
+    char *lineend;
+    int linelen;
+
+    assert(req);
+    assert(part);
+    assert(boundary);
+
+    bodystart = strstr(part, "\r\n\r\n");
+    if (bodystart == NULL) {
+        mangusta_log(MANGUSTA_LOG_ERROR, "%s: Cannot find multipart-part header separator\n", __FUNCTION__);
+        return APR_ERROR;
+    }
+
+    headerend = bodystart + 2;
+    bodystart += 4;
+
+    ctype = NULL;               /* defaults to text/plain */
+    name = NULL;
+    fname = NULL;
+
+                printf("********\n%s\n*****\n", part);
+
+    linestart = lineend = part;
+    while (linestart < headerend) {
+        char *val;
+        char *line;
+
+        lineend = strchr(linestart, '\n');
+        if (lineend != NULL) {
+            linelen = lineend - linestart;
+
+            line = malloc(linelen + 1);
+            if (line != NULL) {
+                memset(line, 0, linelen + 1);
+                memcpy(line, linestart, linelen);
+
+                if (line[linelen - 1] == '\r') {
+                    line[linelen - 1] = '\0';
+                    linelen--;
+                }
+
+/*
+                if ((val = strcasestr(line, "Content-Type:"))) {
+                    val += strlen("Content-Type:");
+                    while (*val == ' ') {
+                        val++;
+                    }
+                    ctype = val;
+                    printf("------------------- 1\n");
+                } else if ((val = strcasestr(line, "content-transfer-encoding:"))) {
+                    // Now ignored
+                    printf("------------------- 2\n");
+                } else if ((val = strcasestr(line, "Content-Disposition: form-data"))) {
+                    char *valstart = NULL;
+                    char *valend = NULL;
+                    printf("------------------- 3\n");
+                    val += strlen("Content-Disposition: form-data");
+                    while (*val == ' ') {
+                        val++;
+                    }
+
+                    // Now we should look for a name and a filename
+                    if ((valstart = strcasestr(val, "filename=\""))) {
+                        valstart += strlen("filename=\"");
+                        valend = valstart + 1;
+                        while (valend && (valend = strchr(valend, '"'))) {
+                            if (*(valend + 1) == '\0' || *(valend + 1) == ';') {
+                                break;
+                            }
+                            valend++;
+                        }
+                        if (valend && (valend > valstart)) {
+                            fname = apr_pcalloc(req->pool, valend - valstart + 1);
+                            if (fname) {
+                                memcpy(fname, valstart, valend - valstart);
+                            }
+                        }
+                    }
+
+                    if ((valstart = strcasestr(val, "name=\""))) {
+                        valstart += strlen("name=\"");
+
+                        valend = valstart + 1;
+                        while (valend && (valend = strchr(valend, '"'))) {
+                            if (*(valend + 1) == '\0' || *(valend + 1) == ';') {
+                                break;
+                            }
+                            valend++;
+                        }
+                        if (valend && (valend > valstart)) {
+                            name = apr_pcalloc(req->pool, valend - valstart + 1);
+                            if (name) {
+                                memcpy(name, valstart, valend - valstart);
+                            }
+                        }
+
+                    }
+                } else {
+                    printf("------------------- 4 buuh\n%s\n", line);
+                }
+*/
+                free(line);
+            }
+
+            linestart = lineend + 1;
+        } else {
+            break;
+        }
+    }
+
+#if MANGUSTA_DEBUG >= 0
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Multipart NAME  '%s'\n", name ? name : "Not set");
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Multipart CTYPE '%s'\n", ctype ? ctype : "Not set");
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Multipart FNAME '%s'\n", fname ? fname : "Not set");
+#endif
+
+/*
+    if (!fname && name) {
+        char *val;
+
+        val = apr_pcalloc(req->pool, partend - bodystart + 1);
+        memcpy(val, bodystart, partend - bodystart);
+        nn_core_hash_insert(&s->post, name, val);
+    } else if (fname && name) {
+        char tmpfile[32] = "";
+        const char *template = "/tmp/ncgi-XXXXXX";
+
+        if (partend > bodystart) {
+            if (nn_mktmpfilename(template, tmpfile) == NN_STATUS_SUCCESS) {
+                FILE *out;
+
+                out = fopen(tmpfile, "w+b");
+                if (out) {
+                    size_t outb;
+                    outb = fwrite(bodystart, 1, partend - bodystart, out);
+                    if (outb == (size_t) (partend - bodystart)) {
+                        if (s->debug) {
+                            ncgi_eprintf(s, "UPLOAD OK\n");
+                        }
+                    } else {
+                        ncgi_eprintf(s, "UPLOAD FAILED\n");
+                    }
+                    fclose(out);
+                }
+            }
+        }
+
+    } else {
+        ncgi_eprintf(s, "Error uploading file: no name and no filename\n");
+    }
+*/
+}
+
+static apr_status_t mangusta_request_parse_multipart_body(mangusta_request_t * req) {
+    char *boundary;
+    int bsize;
+    apr_int32_t blen;
+    char *bdata;
+    char *part;
+
+    assert(req && req->boundary);
+
+    bsize = strlen(req->boundary) + 4 + 1;
+    boundary = apr_palloc(req->pool, bsize);
+
+    if (boundary == NULL) {
+        return APR_ERROR;
+    }
+
+    snprintf(boundary, bsize, "--%s", req->boundary);
+
+    blen = mangusta_buffer_get_char(req->request, &bdata);
+
+    part = bdata;
+    part = strstr(part, boundary);  /* The first one does not usually have the \r\n separation */
+
+    while (part) {
+        char *partend = NULL;
+
+        part += strlen(boundary);   /* Where the --$boundary ends */
+        if (part != NULL) {
+            partend = strstr(part, boundary);
+            if (partend != NULL) {
+                printf("PART|\n");
+                mangusta_request_parse_multipart_part(req, part, partend, boundary);
+                part++;
+            } else {
+                break;
+            }
+        }
+
+        if (partend != NULL) {
+            char *is_end;
+            is_end = partend + strlen(boundary);
+            part = partend + 2 + 2;
+            if (!strncmp(is_end, "--\r\n", 4)) {
+                printf("PARTS OVER!|\n");
+                /* form is over */
+                break;
+            }
+        }
+    }
+    return APR_SUCCESS;
+}
+
+apr_status_t mangusta_request_extract_multipart(mangusta_request_t * req) {
+    char *ctype;
+    char *boundary = NULL;
+
+    ctype = mangusta_request_header_get(req, "Content-Type");
+    if ((ctype != NULL) && strstr(ctype, "multipart/form-data") != NULL) {
+        char *b;
+        if ((b = strstr(ctype, "boundary="))) {
+            char *end;
+            b = b + strlen("boundary=");
+
+            boundary = apr_pstrdup(req->pool, b);
+
+            end = boundary;
+            while ((*end) && (!isspace((int) *end))) {
+                end++;
+            }
+            *end = '\0';
+            req->boundary = boundary;
+            mangusta_request_parse_multipart_body(req);
+        }
+    }
+
+    return APR_SUCCESS;
+}
+
 APR_DECLARE(char *) mangusta_request_header_get(mangusta_request_t * req, const char *name) {
     assert(req);
 

@@ -123,6 +123,9 @@ struct mangusta_request_s {
     apr_int64_t ch_len;
     apr_int64_t ch_received;
     short chunk_done;
+
+    /* Multipart body */
+    char *boundary;
 };
 
 mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock);
@@ -135,6 +138,7 @@ apr_status_t mangusta_request_state_change(mangusta_request_t * req, enum mangus
 apr_status_t mangusta_request_parse_headers(mangusta_request_t * req);
 apr_status_t mangusta_request_extract_querystring(mangusta_request_t * req);
 apr_status_t mangusta_request_extract_form_urlencoded(mangusta_request_t * req);
+apr_status_t mangusta_request_extract_multipart(mangusta_request_t * req);
 apr_status_t mangusta_request_has_payload(mangusta_request_t * req);
 apr_status_t mangusta_request_feed(mangusta_request_t * req, mangusta_buffer_t * in);
 apr_status_t mangusta_request_payload_received(mangusta_request_t * req);
