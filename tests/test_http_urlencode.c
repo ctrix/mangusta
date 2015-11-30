@@ -57,10 +57,10 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
         } else if (!strcmp(method, "POST")) {
             curl_easy_setopt(curl, CURLOPT_POST, 1L);
             if (multipart != 0) {
-//                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "sendfile", CURLFORM_FILE, __FILE__, CURLFORM_END);
-                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "filename", CURLFORM_COPYCONTENTS, __FILE__, CURLFORM_END);
-                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "submit", CURLFORM_COPYCONTENTS, "send", CURLFORM_END);
-                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "libmangusta", CURLFORM_COPYCONTENTS, "r0x!!", CURLFORM_END);
+                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "sendfile", CURLFORM_FILE, __FILE__, CURLFORM_END);
+                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "filename", CURLFORM_COPYCONTENTS, __FILE__, CURLFORM_CONTENTTYPE, "text-foo", CURLFORM_END);
+                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "submit", CURLFORM_COPYCONTENTS, "send it!", CURLFORM_END);
+                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "libmangusta", CURLFORM_COPYCONTENTS, "r0x!! €", CURLFORM_END);
                 curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
             } else {
                 curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) strlen(PPARAMS));

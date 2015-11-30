@@ -306,14 +306,12 @@ static apr_status_t mangusta_request_parse_multipart_part(mangusta_request_t * r
         return APR_ERROR;
     }
 
-    headerend = bodystart + 2;
-    bodystart += 4;
+    headerend = bodystart + 2;  /* The begin of the empty line */
+    bodystart += 4;             /* The byte after the empty line */
 
     ctype = NULL;               /* defaults to text/plain */
     name = NULL;
     fname = NULL;
-
-                printf("********\n%s\n*****\n", part);
 
     linestart = lineend = part;
     while (linestart < headerend) {
@@ -334,21 +332,18 @@ static apr_status_t mangusta_request_parse_multipart_part(mangusta_request_t * r
                     linelen--;
                 }
 
-/*
                 if ((val = strcasestr(line, "Content-Type:"))) {
                     val += strlen("Content-Type:");
                     while (*val == ' ') {
                         val++;
                     }
                     ctype = val;
-                    printf("------------------- 1\n");
-                } else if ((val = strcasestr(line, "content-transfer-encoding:"))) {
-                    // Now ignored
-                    printf("------------------- 2\n");
+                } else if ((val = strcasestr(line, "Content-Transfer-Encoding:"))) {
+                    // Not used in HTTP! See RFC2616 19.4.5
                 } else if ((val = strcasestr(line, "Content-Disposition: form-data"))) {
                     char *valstart = NULL;
                     char *valend = NULL;
-                    printf("------------------- 3\n");
+
                     val += strlen("Content-Disposition: form-data");
                     while (*val == ' ') {
                         val++;
@@ -390,10 +385,8 @@ static apr_status_t mangusta_request_parse_multipart_part(mangusta_request_t * r
                         }
 
                     }
-                } else {
-                    printf("------------------- 4 buuh\n%s\n", line);
                 }
-*/
+
                 free(line);
             }
 
@@ -404,46 +397,46 @@ static apr_status_t mangusta_request_parse_multipart_part(mangusta_request_t * r
     }
 
 #if MANGUSTA_DEBUG >= 0
+    mangusta_log(MANGUSTA_LOG_DEBUG, "--\n");
     mangusta_log(MANGUSTA_LOG_DEBUG, "Multipart NAME  '%s'\n", name ? name : "Not set");
     mangusta_log(MANGUSTA_LOG_DEBUG, "Multipart CTYPE '%s'\n", ctype ? ctype : "Not set");
     mangusta_log(MANGUSTA_LOG_DEBUG, "Multipart FNAME '%s'\n", fname ? fname : "Not set");
 #endif
 
-/*
-    if (!fname && name) {
+    if ((fname == NULL) && name) {
         char *val;
-
-        val = apr_pcalloc(req->pool, partend - bodystart + 1);
-        memcpy(val, bodystart, partend - bodystart);
-        nn_core_hash_insert(&s->post, name, val);
+        /// partend - 2 is to exclude the final \r\n 
+        val = apr_pcalloc(req->pool, (partend - 2) - bodystart + 1);
+        memcpy(val, bodystart, (partend - 2) - bodystart);
+        mangusta_log(MANGUSTA_LOG_DEBUG, "%s => '%s'\n", name, val);
+        if (req->postvars == NULL) {
+            req->postvars = apr_hash_make(req->pool);
+        }
+        apr_hash_set(req->postvars, name, APR_HASH_KEY_STRING, val);
+        return APR_SUCCESS;
     } else if (fname && name) {
-        char tmpfile[32] = "";
-        const char *template = "/tmp/ncgi-XXXXXX";
+        char template[] = "mangusta-XXXXXX";
+        apr_file_t *file;
+        apr_size_t len;
+        apr_int32_t flags = APR_FOPEN_CREATE | APR_FOPEN_READ | APR_FOPEN_WRITE | APR_FOPEN_EXCL | APR_FOPEN_DELONCLOSE;
 
-        if (partend > bodystart) {
-            if (nn_mktmpfilename(template, tmpfile) == NN_STATUS_SUCCESS) {
-                FILE *out;
-
-                out = fopen(tmpfile, "w+b");
-                if (out) {
-                    size_t outb;
-                    outb = fwrite(bodystart, 1, partend - bodystart, out);
-                    if (outb == (size_t) (partend - bodystart)) {
-                        if (s->debug) {
-                            ncgi_eprintf(s, "UPLOAD OK\n");
-                        }
-                    } else {
-                        ncgi_eprintf(s, "UPLOAD FAILED\n");
-                    }
-                    fclose(out);
+        if (partend - 2 > bodystart) {
+            if (apr_file_mktemp(&file, template, flags, req->pool) == APR_SUCCESS) {
+                len = (partend - 2) - bodystart;
+                if (apr_file_write(file, bodystart, &len) != APR_SUCCESS) {
+                    mangusta_log(MANGUSTA_LOG_ERROR, "File upload failed during write");
+                    return APR_ERROR;
+                } else {
+                    mangusta_log(MANGUSTA_LOG_DEBUG, "File upload OK");
+                    return APR_SUCCESS;
                 }
             }
         }
-
     } else {
-        ncgi_eprintf(s, "Error uploading file: no name and no filename\n");
+        mangusta_log(MANGUSTA_LOG_WARNING, "Unhandled multipart data");
     }
-*/
+
+    return APR_ERROR;
 }
 
 static apr_status_t mangusta_request_parse_multipart_body(mangusta_request_t * req) {
@@ -473,27 +466,26 @@ static apr_status_t mangusta_request_parse_multipart_body(mangusta_request_t * r
         char *partend = NULL;
 
         part += strlen(boundary);   /* Where the --$boundary ends */
-        if (part != NULL) {
-            partend = strstr(part, boundary);
-            if (partend != NULL) {
-                printf("PART|\n");
-                mangusta_request_parse_multipart_part(req, part, partend, boundary);
-                part++;
-            } else {
-                break;
-            }
+
+        if (part == NULL || (part > (bdata + blen))) {
+            return APR_ERROR;
         }
 
-        if (partend != NULL) {
-            char *is_end;
-            is_end = partend + strlen(boundary);
-            part = partend + 2 + 2;
-            if (!strncmp(is_end, "--\r\n", 4)) {
-                printf("PARTS OVER!|\n");
-                /* form is over */
-                break;
-            }
+        if (!strncmp(part, "--\r\n", 4)) {
+            /* form is over */
+            break;
+        } else if (!strncmp(part, "\r\n", 2)) {
+            part += 2;
+        } else {
+            return APR_ERROR;
         }
+
+        partend = strstr(part, boundary);
+        if (partend != NULL) {
+            mangusta_request_parse_multipart_part(req, part, partend, boundary);
+        }
+
+        part = partend;
     }
     return APR_SUCCESS;
 }
@@ -743,12 +735,12 @@ apr_status_t mangusta_request_payload_received(mangusta_request_t * req) {
 
     if ((te == NULL) && (blen == cl)) {
 #if MANGUSTA_DEBUG >= 1
-        printf("--------- Payload was fully received\n");
+        mangusta_log(MANGUSTA_LOG_DEBUG, "Payload was fully received");
 #endif
         return APR_SUCCESS;
     } else if (req->chunk_done != 0) {
 #if MANGUSTA_DEBUG >= 1
-        printf("--------- Payload was fully received\n");
+        mangusta_log(MANGUSTA_LOG_DEBUG, "Payload was fully received");
 #endif
         return APR_SUCCESS;
     }
