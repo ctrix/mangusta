@@ -309,6 +309,8 @@ static apr_status_t mangusta_request_parse_multipart_part(mangusta_request_t * r
     headerend = bodystart + 2;  /* The begin of the empty line */
     bodystart += 4;             /* The byte after the empty line */
 
+    (void) ctype;                /* Shutup compiler warnings */
+
     ctype = NULL;               /* defaults to text/plain */
     name = NULL;
     fname = NULL;
@@ -396,7 +398,7 @@ static apr_status_t mangusta_request_parse_multipart_part(mangusta_request_t * r
         }
     }
 
-#if MANGUSTA_DEBUG >= 0
+#if MANGUSTA_DEBUG >= 5
     mangusta_log(MANGUSTA_LOG_DEBUG, "--\n");
     mangusta_log(MANGUSTA_LOG_DEBUG, "Multipart NAME  '%s'\n", name ? name : "Not set");
     mangusta_log(MANGUSTA_LOG_DEBUG, "Multipart CTYPE '%s'\n", ctype ? ctype : "Not set");
@@ -408,7 +410,9 @@ static apr_status_t mangusta_request_parse_multipart_part(mangusta_request_t * r
         /// partend - 2 is to exclude the final \r\n 
         val = apr_pcalloc(req->pool, (partend - 2) - bodystart + 1);
         memcpy(val, bodystart, (partend - 2) - bodystart);
+#if MANGUSTA_DEBUG >= 5
         mangusta_log(MANGUSTA_LOG_DEBUG, "%s => '%s'\n", name, val);
+#endif
         if (req->postvars == NULL) {
             req->postvars = apr_hash_make(req->pool);
         }

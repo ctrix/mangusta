@@ -144,6 +144,12 @@ static apr_status_t on_request_ready(mangusta_ctx_t * ctx, mangusta_request_t * 
         assert_string_equal(mangusta_request_postvar(req, "h"), "");
     }
 
+    if (ctype != NULL && strstr(ctype, "multipart/form-data")) {
+        assert_string_equal(mangusta_request_postvar(req, "filename"), __FILE__);
+        assert_string_equal(mangusta_request_postvar(req, "submit"), "send it!");
+        assert_string_equal(mangusta_request_postvar(req, "libmangusta"), "r0x!! €");
+    }
+
     return status;
 }
 
@@ -160,7 +166,6 @@ static void test_perform(void **UNUSED(foo)) {
     curl_perform(ctx, URL_BASE URL2 "?" UPARAMS, CURL_HTTP_VERSION_1_1, "POST", 0);
     curl_perform(ctx, URL_BASE URL3 "?" UPARAMS, CURL_HTTP_VERSION_1_1, "DELETE", 0);
 */
-
     must_shutdown = 1;
     curl_perform(ctx, URL_BASE URL2 "?" UPARAMS, CURL_HTTP_VERSION_1_1, "POST", 1);
 
