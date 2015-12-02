@@ -63,17 +63,17 @@ function do_indent() {
         -o $TO
 }
 
-SOURCES=`find . -name *.c -print;`
+SOURCES=`find src/ -name *.c -print;`
 for SOURCE in $SOURCES; do
     do_indent $SOURCE $SOURCE
 done;
 
-SOURCES=`find . -name *.cpp -print;`
+SOURCES=`find src/ -name *.cpp -print;`
 for SOURCE in $SOURCES; do
     do_indent $SOURCE $SOURCE
 done;
 
-SOURCES=`find . -name *.h -print;`
+SOURCES=`find src/ -name *.h -print;`
 for SOURCE in $SOURCES; do
     do_indent $SOURCE $SOURCE
 done;

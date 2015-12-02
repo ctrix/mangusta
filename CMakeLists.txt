@@ -98,7 +98,9 @@ ENDIF( ${MANGUSTA_USE_TESTS} AND ${CURL_FOUND} )
 # And the subdirs we have to recurse to
 #***************************************
 
+add_subdirectory (libs/mbedtls)
 add_subdirectory (src)
+
 IF (MANGUSTA_USE_TESTS AND CURL_FOUND)
     add_subdirectory (tests)
 ENDIF (MANGUSTA_USE_TESTS AND CURL_FOUND)
