@@ -136,6 +136,7 @@ static void test_perform(void **UNUSED(foo)) {
     char *params;
 
     MANGUSTA_TEST_SETUP;
+    MANGUSTA_TEST_START;
 
     assert_int_equal(mangusta_context_set_request_ready_cb(ctx, on_request_ready), APR_SUCCESS);
 

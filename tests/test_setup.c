@@ -14,6 +14,7 @@
 static void test_perform(void **UNUSED(foo)) {
 
     MANGUSTA_TEST_SETUP;
+    MANGUSTA_TEST_START;
     MANGUSTA_TEST_DISPOSE;
 
     return;

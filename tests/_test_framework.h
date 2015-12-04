@@ -30,9 +30,11 @@
     assert_int_equal(mangusta_context_set_port(ctx, atoi(MANGUSTA_TEST_BINDPORT)), APR_SUCCESS); \
     assert_int_equal(mangusta_context_set_max_connections(ctx, 1024), APR_SUCCESS); \
     assert_int_equal(mangusta_context_set_max_idle(ctx, 1024), APR_SUCCESS); \
-    \
+
+#define MANGUSTA_TEST_START \
     assert_int_equal(mangusta_context_start(ctx), APR_SUCCESS); \
     assert_int_equal(mangusta_context_background(ctx), APR_SUCCESS);
+
 
 #define MANGUSTA_TEST_DISPOSE \
     assert_int_equal(mangusta_context_free(ctx), APR_SUCCESS); \

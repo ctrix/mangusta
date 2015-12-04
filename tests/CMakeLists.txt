@@ -16,5 +16,5 @@ PROJECT_ADD_TEST(test_http_urlencode SOURCE test_http_urlencode.c LIBS mangusta 
 #PROJECT_ADD_TEST(test_http_headers SOURCE test_http_headers.c LIBS mangusta cmocka ${CURL_LIBRARY})
 #PROJECT_ADD_TEST(test_http_keepalive SOURCE test_http_keepalive.c LIBS mangusta cmocka ${CURL_LIBRARY})
 
-#PROJECT_ADD_TEST(wiptest SOURCE wiptest.c LIBS mangusta ${CURL_LIBRARY})
+PROJECT_ADD_TEST(wiptest SOURCE wiptest.c LIBS mangusta ${CURL_LIBRARY})
 

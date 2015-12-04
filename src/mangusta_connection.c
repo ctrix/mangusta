@@ -2,6 +2,114 @@
 
 #include "mangusta_private.h"
 
+apr_status_t mangusta_connection_send(void *data, char *buf, apr_size_t * blen) {
+#ifdef MANGUSTA_ENABLE_TLS
+    apr_status_t status = APR_ERROR;
+#endif
+    mangusta_connection_t *conn = data;
+
+    assert(data);
+
+#ifdef MANGUSTA_ENABLE_TLS
+    if (conn->has_ssl == 0) {
+#endif
+#if MANGUSTA_DEBUG >= 1
+        mangusta_log(MANGUSTA_LOG_DEBUG, "CLEARTEXT: send %zu bytes", (size_t) * blen);
+#endif
+        return apr_socket_send(conn->sock, buf, blen);
+#ifdef MANGUSTA_ENABLE_TLS
+    } else {
+        int ret;
+        size_t len;
+        len = *blen;
+
+        do {
+            ret = mbedtls_ssl_write(&conn->ssl, (const unsigned char *) buf, len);
+
+            if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+                continue;
+            }
+
+            if (ret == MBEDTLS_ERR_NET_CONN_RESET) {
+                status = APR_ERROR;
+                break;
+            }
+
+        } while (ret <= 0);
+
+    }
+
+#if MANGUSTA_DEBUG >= 1
+    mangusta_log(MANGUSTA_LOG_DEBUG, "TLS: send %zu bytes - %s", (size_t) * blen, status == APR_SUCCESS ? "OK" : "NO");
+#endif
+
+    return status;
+#endif
+}
+
+apr_status_t mangusta_connection_recv(void *data, char *buf, apr_size_t * blen) {
+    apr_status_t status = APR_ERROR;
+#ifdef MANGUSTA_ENABLE_TLS
+    int ret;
+#endif
+    mangusta_connection_t *conn = data;
+
+    assert(data);
+
+#ifdef MANGUSTA_ENABLE_TLS
+    if (conn->has_ssl == 0) {
+#endif
+        status = apr_socket_recv(conn->sock, buf, blen);
+#if MANGUSTA_DEBUG >= 1
+        mangusta_log(MANGUSTA_LOG_DEBUG, "CLEARTEXT: recv %zu bytes", (size_t) * blen);
+#endif
+        return status;
+#ifdef MANGUSTA_ENABLE_TLS
+    } else {
+        size_t len = *blen - 1;
+
+        do {
+            ret = mbedtls_ssl_read(&conn->ssl, (unsigned char *) buf, len);
+
+#if MANGUSTA_DEBUG >= 1
+            mangusta_log(MANGUSTA_LOG_DEBUG, "TLS: recv %d bytes => %d", (int) len, ret);
+#endif
+
+            if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+                continue;
+            }
+
+            if (ret > 0) {
+                *blen = ret;
+                status = APR_SUCCESS;
+                break;
+            }
+
+            if (ret == 0) {
+                *blen = ret;
+                status = APR_EOF;
+                break;
+            }
+
+            if (ret < 0) {
+                *blen = 0;
+                status = APR_ERROR;
+/*
+                {
+                    char b[1111];
+                    mbedtls_strerror(ret, b, sizeof(b) - 2);
+                    mangusta_log(MANGUSTA_LOG_DEBUG, "%s", b);
+                }
+*/
+                break;
+            }
+        } while (1);
+    }
+
+    return status;
+#endif
+}
+
 static void on_disconnect(mangusta_connection_t * conn) {
     assert(conn);
 
@@ -27,15 +135,14 @@ static void on_disconnect(mangusta_connection_t * conn) {
 
 static void on_read(mangusta_connection_t * conn) {
     apr_size_t tot;
-    apr_status_t rv;
     char b[1024];
 
     tot = sizeof(b) - 2;
 
-    rv = apr_socket_recv(conn->sock, b, &tot);
-    if (rv == APR_SUCCESS) {
+    mangusta_connection_recv(conn, b, &tot);
+    if (tot > 0) {
 #if MANGUSTA_DEBUG >= 1
-        mangusta_log(MANGUSTA_LOG_DEBUG, "[Read %zu bytes]", tot);
+        mangusta_log(MANGUSTA_LOG_DEBUG, "[Read %zu bytes!]", tot);
 #endif
         b[tot] = '\0';
         mangusta_buffer_append(conn->buffer_r, b, tot);
@@ -94,6 +201,15 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 
 #if MANGUSTA_DEBUG >= 1
     printf("New connection from IP: %s PORT: %d\n", ip, sa->port);
+#endif
+
+#ifdef MANGUSTA_ENABLE_TLS
+    conn->has_ssl = 1;
+    if (mangusta_connection_tls_handshake(conn) != APR_SUCCESS) {
+        mangusta_log(MANGUSTA_LOG_DEBUG, "Error handshaking TLS.");
+        goto done;
+    }
+    mangusta_log(MANGUSTA_LOG_DEBUG, "TLS Handshaking done");
 #endif
 
     rv = apr_pollset_create(&conn->pollset, DEFAULT_POLLSET_NUM, conn->pool, APR_POLLSET_WAKEABLE);
@@ -184,7 +300,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 
                                     if (((exp = mangusta_request_header_get(conn->current, "Expect")) != NULL) && (strstr(exp, "continue"))) {
                                         mangusta_log(MANGUSTA_LOG_DEBUG, "Sending 100-continue");
-                                        if (apr_socket_send(conn->sock, cont, &blen) != APR_SUCCESS) {
+                                        if (mangusta_connection_send(conn->sock, cont, &blen) != APR_SUCCESS) {
                                             goto done;
                                         }
                                     }
@@ -331,6 +447,10 @@ mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_sock
 }
 
 void mangusta_connection_destroy(mangusta_connection_t * conn) {
+
+    if ( conn->has_ssl ) {
+	mangusta_connection_tls_bye(conn);
+    }
 
     assert(conn);
     apr_pool_destroy(conn->pool);

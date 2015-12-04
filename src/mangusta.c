@@ -94,6 +94,13 @@ APR_DECLARE(apr_status_t) mangusta_context_start(mangusta_ctx_t * ctx) {
 
     assert(ctx);
 
+#ifdef MANGUSTA_ENABLE_TLS
+    if (mangusta_context_tls_enable(ctx) != APR_SUCCESS) {
+        mangusta_log(MANGUSTA_LOG_ERROR, "Cannot enable SSL for this context.");
+        return APR_ERROR;
+    }
+#endif
+
     status = apr_sockaddr_info_get(&sa, ctx->host, APR_UNSPEC, ctx->port, 0, ctx->pool);
     if (status != APR_SUCCESS) {
         mangusta_log(MANGUSTA_LOG_ERROR, "Cannot get sockaddr info for this context");
@@ -320,6 +327,12 @@ APR_DECLARE(apr_status_t) mangusta_context_free(mangusta_ctx_t * ctx) {
     }
 
     pool = ctx->pool;
+
+#ifdef MANGUSTA_ENABLE_TLS
+    if (mangusta_context_tls_disable(ctx) != APR_SUCCESS) {
+        mangusta_log(MANGUSTA_LOG_ERROR, "Cannot disable SSL for this context.");
+    }
+#endif
 
     // Improve cleanup: thread pool, pollset etcc...
     apr_pool_destroy(pool);

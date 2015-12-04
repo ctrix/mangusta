@@ -16,7 +16,6 @@ SET(MANGUSTA_USE_SSL     true CACHE BOOL  "Use SSL, requires OpenSSL")
 SET(MANGUSTA_USE_SYSTEMD true CACHE BOOL  "Adds simple support for systemd")
 SET(MANGUSTA_USE_TESTS   true CACHE BOOL  "Compile the tests")
 
-
 #*************************************************
 # The following checks are distributed with CMake
 #*************************************************
@@ -74,6 +73,13 @@ INCLUDE(FindCURL)
 # Last bits
 #*************************
 
+IF ( ${MANGUSTA_USE_SSL} )
+    ADD_DEFINITIONS(-DMANGUSTA_ENABLE_TLS)
+    ADD_DEFINITIONS(-DMBEDTLS_THREADING_C)
+    #// TODO If Windows use _alt version
+    ADD_DEFINITIONS(-DMBEDTLS_THREADING_PTHREAD)
+ENDIF ( ${MANGUSTA_USE_SSL} )
+
 # Set the RPATH properly
 SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) 
@@ -94,11 +100,16 @@ ELSE( ${MANGUSTA_USE_TESTS} AND ${CURL_FOUND} )
     MESSAGE(STATUS "NOT ENABLING TESTS")
 ENDIF( ${MANGUSTA_USE_TESTS} AND ${CURL_FOUND} )
 
+
+
 #***************************************
 # And the subdirs we have to recurse to
 #***************************************
 
-add_subdirectory (libs/mbedtls)
+IF ( ${MANGUSTA_USE_SSL} )
+    add_subdirectory (libs/mbedtls)
+ENDIF ( ${MANGUSTA_USE_SSL} )
+
 add_subdirectory (src)
 
 IF (MANGUSTA_USE_TESTS AND CURL_FOUND)

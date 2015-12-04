@@ -155,6 +155,7 @@ static apr_status_t on_request_ready(mangusta_ctx_t * ctx, mangusta_request_t * 
 
 static void test_perform(void **UNUSED(foo)) {
     MANGUSTA_TEST_SETUP;
+    MANGUSTA_TEST_START;
 
     assert_int_equal(mangusta_context_set_request_header_cb(ctx, on_headers_ready), APR_SUCCESS);
     assert_int_equal(mangusta_context_set_request_ready_cb(ctx, on_request_ready), APR_SUCCESS);

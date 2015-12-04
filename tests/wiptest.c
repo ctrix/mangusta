@@ -35,31 +35,33 @@ static void curl_get(char *url) {
 }
 */
 
-int main(void) {
-    apr_status_t status;
-    mangusta_ctx_t *ctx;
-    apr_pool_t *pool;
+static apr_status_t on_request_ready(mangusta_ctx_t * ctx, mangusta_request_t * req) {
+    mangusta_response_status_set(req, 200, "OK");
+    mangusta_response_header_set(req, "Connection", "keep-alive");
+    mangusta_response_body_appendf(req, "Done!");
+    return APR_SUCCESS;
+}
 
-    status = mangusta_init();
-    assert_int_equal(status, APR_SUCCESS);
+int main(void) {
+    mangusta_ctx_t *ctx;
+
+    mangusta_init();
 
     ctx = mangusta_context_new();
-    assert_non_null(ctx);
 
-    pool = mangusta_context_get_pool(ctx);
-    assert_non_null(pool);
+    mangusta_context_get_pool(ctx);
 
-    assert_int_equal(mangusta_context_set_host(ctx, "127.0.0.1"), APR_SUCCESS);
-    assert_int_equal(mangusta_context_set_port(ctx, 8090), APR_SUCCESS);
-    assert_int_equal(mangusta_context_set_max_connections(ctx, 1024), APR_SUCCESS);
-    assert_int_equal(mangusta_context_set_max_idle(ctx, 1024), APR_SUCCESS);
+    mangusta_context_set_host(ctx, "::");
+    mangusta_context_set_port(ctx, 8090);
+    mangusta_context_set_max_connections(ctx, 1024);
+    mangusta_context_set_max_idle(ctx, 1024);
 
-//    assert_int_equal(mangusta_context_set_request_header_cb(ctx, on_request_headers), APR_SUCCESS);
-//    assert_int_equal(mangusta_context_set_request_ready_cb(ctx, on_request_ready), APR_SUCCESS);
+//    mangusta_context_set_request_header_cb(ctx, on_request_headers);
+    mangusta_context_set_request_ready_cb(ctx, on_request_ready);
 
-    assert_int_equal(mangusta_context_start(ctx), APR_SUCCESS);
+    mangusta_context_start(ctx);
 
-    assert_int_equal(mangusta_context_background(ctx), APR_SUCCESS);
+    mangusta_context_background(ctx);
 
     while (mangusta_context_running(ctx) == APR_SUCCESS) {
         apr_sleep(APR_USEC_PER_SEC / 100);
@@ -67,7 +69,7 @@ int main(void) {
 
     mangusta_context_stop(ctx);
 
-    assert_int_equal(mangusta_context_free(ctx), APR_SUCCESS);
+    mangusta_context_free(ctx);
     mangusta_shutdown();
 
     return 0;

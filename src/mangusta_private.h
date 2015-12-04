@@ -14,6 +14,20 @@
 #include "apr_queue.h"
 #include "apr_thread_pool.h"
 
+#include "mbedtls/config.h"
+#include "mbedtls/platform.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/certs.h"
+#include "mbedtls/x509.h"
+#include "mbedtls/ssl.h"
+#include "mbedtls/net.h"
+#include "mbedtls/error.h"
+#include "mbedtls/debug.h"
+#include "mbedtls/ssl_cache.h"
+#ifdef MANGUSTA_ENABLE_TLS
+#endif
+
 #define MANGUSTA_DEBUG 0
 
 #define zstr(x)  ( ((x==NULL) || (*x == '\0')) ? 1 : 0)
@@ -52,6 +66,18 @@ enum mangusta_http_version_e {
     MANGUSTA_HTTP_20
 };
 
+#ifdef MANGUSTA_ENABLE_TLS
+struct mangusta_ctx_tls_s {
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_ssl_config conf;
+    mbedtls_x509_crt srvcert;
+    mbedtls_x509_crt cacert;
+    mbedtls_pk_context pkey;
+    mbedtls_ssl_cache_context cache;
+};
+#endif
+
 struct mangusta_ctx_s {
     const char *host;
     int port;
@@ -71,6 +97,9 @@ struct mangusta_ctx_s {
     apr_thread_pool_t *tp;
     apr_thread_t *thread;
     apr_bool_t stopped;
+#ifdef MANGUSTA_ENABLE_TLS
+    struct mangusta_ctx_tls_s tls;
+#endif
 };
 
 struct mangusta_connection_s {
@@ -84,6 +113,10 @@ struct mangusta_connection_s {
     apr_uint32_t request_count;
     apr_queue_t *requests;
     mangusta_request_t *current;
+#ifdef MANGUSTA_ENABLE_TLS
+    char has_ssl;
+    mbedtls_ssl_context ssl;
+#endif
 
     enum mangusta_read_state_e state;
     short terminated;
@@ -128,8 +161,15 @@ struct mangusta_request_s {
     char *boundary;
 };
 
+apr_status_t mangusta_context_tls_enable(mangusta_ctx_t * ctx);
+apr_status_t mangusta_context_tls_disable(mangusta_ctx_t * ctx);
+apr_status_t mangusta_connection_tls_handshake(mangusta_connection_t * conn);
+apr_status_t mangusta_connection_tls_bye(mangusta_connection_t * conn);
+
 mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_socket_t * sock);
 void mangusta_connection_destroy(mangusta_connection_t * conn);
+apr_status_t mangusta_connection_send(void *data, char *buf, apr_size_t * blen);
+apr_status_t mangusta_connection_recv(void *data, char *buf, apr_size_t * blen);
 apr_status_t mangusta_connection_play(mangusta_connection_t * conn);
 
 apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_request_t ** req);

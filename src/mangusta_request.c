@@ -309,7 +309,7 @@ static apr_status_t mangusta_request_parse_multipart_part(mangusta_request_t * r
     headerend = bodystart + 2;  /* The begin of the empty line */
     bodystart += 4;             /* The byte after the empty line */
 
-    (void) ctype;                /* Shutup compiler warnings */
+    (void) ctype;               /* Shutup compiler warnings */
 
     ctype = NULL;               /* defaults to text/plain */
     name = NULL;
@@ -862,7 +862,7 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
     /* Start the output */
     blen = snprintf(buf, sizeof(buf) - 1, "%s %d %s\r\n", zstr(req->c_http_version) ? "HTTP/1.0" : req->c_http_version, req->status, zstr(req->message) ? "Unset" : req->message);
     buf[blen] = '\0';
-    apr_socket_send(req->conn->sock, buf, &blen);
+    mangusta_connection_send(req->conn, buf, &blen);
 
     for (hi = apr_hash_first(req->pool, req->rheaders); hi; hi = apr_hash_next(hi)) {
         char *key;
@@ -872,17 +872,17 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
         if (!zstr(val)) {
             blen = snprintf(buf, sizeof(buf) - 1, "%s: %s\r\n", key, val);
             buf[blen] = '\0';
-            apr_socket_send(req->conn->sock, buf, &blen);
+            mangusta_connection_send(req->conn, buf, &blen);
         }
     }
 
     blen = 2;
-    apr_socket_send(req->conn->sock, "\r\n", &blen);
+    mangusta_connection_send(req->conn, "\r\n", &blen);
 
     osize = mangusta_buffer_get_char(req->response, &out);
     if (osize > 0) {
         blen = osize;
-        apr_socket_send(req->conn->sock, out, &blen);
+        mangusta_connection_send(req->conn, out, &blen);
         mangusta_buffer_reset(req->response);
     }
 
