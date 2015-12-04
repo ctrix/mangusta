@@ -13,7 +13,7 @@ apr_status_t mangusta_connection_send(void *data, char *buf, apr_size_t * blen) 
 #ifdef MANGUSTA_ENABLE_TLS
     if (conn->has_ssl == 0) {
 #endif
-#if MANGUSTA_DEBUG >= 1
+#if MANGUSTA_DEBUG >= 5
         mangusta_log(MANGUSTA_LOG_DEBUG, "CLEARTEXT: send %zu bytes", (size_t) * blen);
 #endif
         return apr_socket_send(conn->sock, buf, blen);
@@ -39,7 +39,7 @@ apr_status_t mangusta_connection_send(void *data, char *buf, apr_size_t * blen) 
 
     }
 
-#if MANGUSTA_DEBUG >= 1
+#if MANGUSTA_DEBUG >= 5
     mangusta_log(MANGUSTA_LOG_DEBUG, "TLS: send %zu bytes - %s", (size_t) * blen, status == APR_SUCCESS ? "OK" : "NO");
 #endif
 
@@ -60,7 +60,7 @@ apr_status_t mangusta_connection_recv(void *data, char *buf, apr_size_t * blen) 
     if (conn->has_ssl == 0) {
 #endif
         status = apr_socket_recv(conn->sock, buf, blen);
-#if MANGUSTA_DEBUG >= 1
+#if MANGUSTA_DEBUG >= 5
         mangusta_log(MANGUSTA_LOG_DEBUG, "CLEARTEXT: recv %zu bytes", (size_t) * blen);
 #endif
         return status;
@@ -71,7 +71,7 @@ apr_status_t mangusta_connection_recv(void *data, char *buf, apr_size_t * blen) 
         do {
             ret = mbedtls_ssl_read(&conn->ssl, (unsigned char *) buf, len);
 
-#if MANGUSTA_DEBUG >= 1
+#if MANGUSTA_DEBUG >= 5
             mangusta_log(MANGUSTA_LOG_DEBUG, "TLS: recv %d bytes => %d", (int) len, ret);
 #endif
 
@@ -113,7 +113,7 @@ apr_status_t mangusta_connection_recv(void *data, char *buf, apr_size_t * blen) 
 static void on_disconnect(mangusta_connection_t * conn) {
     assert(conn);
 
-#if MANGUSTA_DEBUG > 5
+#if MANGUSTA_DEBUG > 3
     mangusta_log(MANGUSTA_LOG_DEBUG, "On client Disconnect");
 #endif
 
@@ -258,7 +258,6 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                 case MANGUSTA_CONNECTION_REQUEST:
 
                     if (conn->current == NULL) {
-                        mangusta_log(MANGUSTA_LOG_DEBUG, "Creating Request");
                         if (mangusta_request_create(conn, &req) == APR_SUCCESS) {
                             conn->current = req;
                         } else {
@@ -278,7 +277,9 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                     }
 
                     if ((conn->current->state == MANGUSTA_REQUEST_HEADERS) && (buffer_contains_headers(conn) == APR_SUCCESS)) {
+#if MANGUSTA_DEBUG >= 4
                         mangusta_log(MANGUSTA_LOG_DEBUG, "Read buffer contains headers");
+#endif
                         if (mangusta_request_parse_headers(req) != APR_SUCCESS) {
                             mangusta_response_status_set(req, 400, "Bad Request");
                             mangusta_log(MANGUSTA_LOG_ERROR, "Request with bad headers");
@@ -300,7 +301,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 
                                     if (((exp = mangusta_request_header_get(conn->current, "Expect")) != NULL) && (strstr(exp, "continue"))) {
                                         mangusta_log(MANGUSTA_LOG_DEBUG, "Sending 100-continue");
-                                        if (mangusta_connection_send(conn->sock, cont, &blen) != APR_SUCCESS) {
+                                        if (mangusta_connection_send(conn, cont, &blen) != APR_SUCCESS) {
                                             goto done;
                                         }
                                     }
@@ -309,10 +310,14 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         }
 
                         if (mangusta_request_has_payload(req) == APR_SUCCESS) {
+#if MANGUSTA_DEBUG >= 2
                             mangusta_log(MANGUSTA_LOG_DEBUG, "Mangusta request contains payload");
+#endif
                             assert(mangusta_request_state_change(req, MANGUSTA_REQUEST_PAYLOAD) == APR_SUCCESS);
                         } else {
+#if MANGUSTA_DEBUG >= 2
                             mangusta_log(MANGUSTA_LOG_DEBUG, "Mangusta request without payload");
+#endif
                             assert(mangusta_request_state_change(req, MANGUSTA_RESPONSE_HEADERS) == APR_SUCCESS);
                             conn->state = MANGUSTA_CONNECTION_RESPONSE;
                         }
@@ -324,7 +329,9 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         mangusta_request_feed(req, conn->buffer_r);
 
                         if (mangusta_request_payload_received(req) == APR_SUCCESS) {
+#if MANGUSTA_DEBUG >= 2
                             mangusta_log(MANGUSTA_LOG_DEBUG, "Mangusta Request Payload received");
+#endif
                             //assert(0);
                             assert(mangusta_request_state_change(req, MANGUSTA_RESPONSE_HEADERS) == APR_SUCCESS);
                             conn->state = MANGUSTA_CONNECTION_RESPONSE;
@@ -363,14 +370,15 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                         mangusta_response_status_set(req, 500, NULL);
                     }
 
-                    if (mangusta_response_write(req) != APR_SUCCESS) {
-                        /* TODO Disconnect the connection */
-                        mangusta_response_status_set(req, 500, NULL);
-                        mangusta_error_write(req);
+                    rv = mangusta_response_write(req);
+                    mangusta_request_destroy(conn->current);
+
+                    if (rv == APR_EOF) {
+                        conn->terminated = 1;
+                        apr_socket_close(conn->sock);
                         goto done;
                     }
 
-                    mangusta_request_destroy(conn->current);
                     conn->current = NULL;
                     conn->state = MANGUSTA_CONNECTION_NEW;
 
@@ -448,9 +456,15 @@ mangusta_connection_t *mangusta_connection_create(mangusta_ctx_t * ctx, apr_sock
 
 void mangusta_connection_destroy(mangusta_connection_t * conn) {
 
-    if ( conn->has_ssl ) {
-	mangusta_connection_tls_bye(conn);
+#if MANGUSTA_DEBUG >= 1
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Destroying connection");
+#endif
+
+#ifdef MANGUSTA_ENABLE_TLS
+    if (conn->has_ssl) {
+        mangusta_connection_tls_bye(conn);
     }
+#endif
 
     assert(conn);
     apr_pool_destroy(conn->pool);

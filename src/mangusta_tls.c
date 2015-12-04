@@ -71,8 +71,8 @@ apr_status_t mangusta_context_tls_enable(mangusta_ctx_t * ctx) {
 #endif
 
     /*
-    mbedtls_debug_set_threshold(9);
-    */
+       mbedtls_debug_set_threshold(9);
+     */
 
     mangusta_log(MANGUSTA_LOG_DEBUG, "Enabling TLS");
 
@@ -135,8 +135,8 @@ apr_status_t mangusta_context_tls_enable(mangusta_ctx_t * ctx) {
 
     mbedtls_ssl_conf_rng(&ctx->tls.conf, mbedtls_ctr_drbg_random, &ctx->tls.ctr_drbg);
     /*
-    mbedtls_ssl_conf_dbg(&ctx->tls.conf, my_debug, stdout);
-    */
+       mbedtls_ssl_conf_dbg(&ctx->tls.conf, my_debug, stdout);
+     */
 
     mbedtls_ssl_conf_session_cache(&ctx->tls.conf, &ctx->tls.cache, mbedtls_ssl_cache_get, mbedtls_ssl_cache_set);
     mbedtls_ssl_conf_ca_chain(&ctx->tls.conf, ctx->tls.cacert.next, NULL);

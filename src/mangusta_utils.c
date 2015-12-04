@@ -1,8 +1,23 @@
 
 #include "mangusta_private.h"
 
-#ifndef strnstr
+APR_DECLARE(char *) apr_lowercase(apr_pool_t * pool, const char *in) {
+    char *out, *t;
 
+    if (zstr(in)) {
+        return NULL;
+    }
+
+    out = apr_pstrdup(pool, in);
+
+    for (t = out; *t; ++t) {
+        *t = apr_tolower(*t);
+    }
+
+    return out;
+}
+
+#ifndef strnstr
 char *strnstr(const char *haystack, const char *needle, size_t len) {
     int i;
     size_t needle_len;
@@ -19,7 +34,6 @@ char *strnstr(const char *haystack, const char *needle, size_t len) {
     }
     return NULL;
 }
-
 #endif
 
 apr_status_t chomp(char *buffer, size_t length) {

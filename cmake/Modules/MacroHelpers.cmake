@@ -151,16 +151,18 @@ MACRO(PROJECT_ADD_TEST)
     )
     ENDIF(NOT APPLE AND NOT WIN32)
 
-    ADD_TEST(${TESTUNIT_NAME} ${TESTUNIT_NAME} )
-
-    #ADD_TEST(wiptest_vg
-    #          valgrind
-    #          --error-exitcode=1
-    #          --read-var-info=yes
-    #          --leak-check=full
-    #          --show-leak-kinds=all
-    #          ./wiptest
-    #)
+    IF( ${TESTUNIT_VALGRIND} STREQUAL "1")
+	ADD_TEST(${TESTUNIT_NAME}_vg
+                valgrind
+                --error-exitcode=1
+                --read-var-info=yes
+                --leak-check=full
+                --show-leak-kinds=all
+                ./${TESTUNIT_NAME}
+    )
+    ELSE( ${TESTUNIT_VALGRIND} STREQUAL "1")
+	ADD_TEST(${TESTUNIT_NAME} ${TESTUNIT_NAME} )
+    ENDIF( ${TESTUNIT_VALGRIND} STREQUAL "1")
 
 ENDMACRO(PROJECT_ADD_TEST)
 

@@ -9,35 +9,20 @@
 
 #include <mangusta.h>
 
-/*
-static void curl_get(char *url) {
-    CURL *curl;
-    CURLcode res;
-
-    curl = curl_easy_init();
-    if (curl != NULL) {
-        curl_easy_setopt(curl, CURLOPT_URL, url);
-        res = curl_easy_perform(curl);
-
-        if (CURLE_OK == res) {
-            char *ct;
-            res = curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &ct);
-
-            if ((CURLE_OK == res) && ct) {
-                printf("We received Content-Type: %s\n", ct);
-            }
-        } else {
-            //printf("CURL received an error\n");
-        }
-
-        curl_easy_cleanup(curl);
-    }
-}
-*/
-
 static apr_status_t on_request_ready(mangusta_ctx_t * ctx, mangusta_request_t * req) {
+    char *url;
+    assert(ctx);
+
+
+    url = mangusta_request_url_get(req);
+
+    if ( strstr(url, "stop") ) {
+        mangusta_context_stop(ctx);
+    }
+
     mangusta_response_status_set(req, 200, "OK");
-    mangusta_response_header_set(req, "Connection", "keep-alive");
+    mangusta_response_header_set(req, "X-test", "Success");
+    mangusta_response_header_set(req, "Connection", "close");
     mangusta_response_body_appendf(req, "Done!");
     return APR_SUCCESS;
 }
@@ -56,7 +41,6 @@ int main(void) {
     mangusta_context_set_max_connections(ctx, 1024);
     mangusta_context_set_max_idle(ctx, 1024);
 
-//    mangusta_context_set_request_header_cb(ctx, on_request_headers);
     mangusta_context_set_request_ready_cb(ctx, on_request_ready);
 
     mangusta_context_start(ctx);

@@ -33,7 +33,7 @@
 #define zstr(x)  ( ((x==NULL) || (*x == '\0')) ? 1 : 0)
 
 #define DEFAULT_POLLSET_NUM 8
-#define DEFAULT_POLL_TIMEOUT (APR_USEC_PER_SEC / 10)
+#define DEFAULT_POLL_TIMEOUT (APR_USEC_PER_SEC / 25)
 
 #define DEFAULT_SOCKET_BACKLOG SOMAXCONN
 #define DEFAULT_THREAD_STACKSIZE 250 * 1024
@@ -41,7 +41,7 @@
 #define REQUEST_HEADER_MAX_LEN MANGUSTA_REQUEST_HEADER_MAX_LEN
 #define REQUEST_HEADERS_MAX_SIZE MANGUSTA_REQUEST_HEADERS_MAX_SIZE
 #define HEADERS_END_MARKER "\r\n\r\n"
-#define DEFAULT_REQUESTS_PER_CONNECTION_QUEUE 20
+#define DEFAULT_REQUESTS_PER_CONNECTION_QUEUE 100
 
 enum mangusta_read_state_e {
     MANGUSTA_CONNECTION_NEW = 1,
@@ -113,8 +113,8 @@ struct mangusta_connection_s {
     apr_uint32_t request_count;
     apr_queue_t *requests;
     mangusta_request_t *current;
-#ifdef MANGUSTA_ENABLE_TLS
     char has_ssl;
+#ifdef MANGUSTA_ENABLE_TLS
     mbedtls_ssl_context ssl;
 #endif
 

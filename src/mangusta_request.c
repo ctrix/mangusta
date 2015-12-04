@@ -14,6 +14,10 @@ apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_requ
     assert(conn);
     assert(req);
 
+#if MANGUSTA_DEBUG >= 2
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Creating Request");
+#endif
+
     *req = NULL;
 
     status = apr_pool_create(&pool, conn->pool);
@@ -45,6 +49,9 @@ apr_status_t mangusta_request_create(mangusta_connection_t * conn, mangusta_requ
 }
 
 void mangusta_request_destroy(mangusta_request_t * req) {
+#if MANGUSTA_DEBUG >= 2
+    mangusta_log(MANGUSTA_LOG_DEBUG, "Destroying Request");
+#endif
     apr_pool_destroy(req->pool);
     return;
 }
@@ -525,7 +532,7 @@ APR_DECLARE(char *) mangusta_request_header_get(mangusta_request_t * req, const 
 
     if (!zstr(name)) {
         char *t;
-        char *lowername = strdup(name);
+        char *lowername = apr_pstrdup(req->pool, name);
         if (lowername != NULL) {
             for (t = lowername; *t; ++t) {
                 *t = tolower(*t);
@@ -768,7 +775,8 @@ APR_DECLARE(apr_status_t) mangusta_response_header_del(mangusta_request_t * req,
     assert(req);
 
     if (!zstr(name)) {
-        apr_hash_set(req->rheaders, name, APR_HASH_KEY_STRING, NULL);
+        char *lowername = apr_lowercase(req->pool, name);
+        apr_hash_set(req->rheaders, lowername, APR_HASH_KEY_STRING, NULL);
         return APR_SUCCESS;
     }
 
@@ -776,21 +784,40 @@ APR_DECLARE(apr_status_t) mangusta_response_header_del(mangusta_request_t * req,
 }
 
 APR_DECLARE(apr_status_t) mangusta_response_header_set(mangusta_request_t * req, const char *name, const char *value) {
+    char *lowername;
     assert(req);
 
     if (!zstr(name)) {
-        apr_hash_set(req->rheaders, apr_pstrndup(req->pool, name, strlen(name)), APR_HASH_KEY_STRING, apr_pstrndup(req->pool, value, strlen(value)));
+        lowername = apr_lowercase(req->pool, name);
+
+        apr_hash_set(req->rheaders, lowername, APR_HASH_KEY_STRING, apr_pstrndup(req->pool, value, strlen(value)));
         return APR_SUCCESS;
     }
 
     return APR_ERROR;
 }
 
-APR_DECLARE(apr_status_t) mangusta_response_header_exists(mangusta_request_t * req, const char *name) {
+APR_DECLARE(char *) mangusta_response_header_get(mangusta_request_t * req, const char *name) {
     assert(req);
 
     if (!zstr(name)) {
-        if (apr_hash_get(req->rheaders, name, APR_HASH_KEY_STRING) != NULL) {
+        char *a;
+        char *lowername;
+
+        lowername = apr_lowercase(req->pool, name);
+        a = apr_hash_get(req->rheaders, lowername, APR_HASH_KEY_STRING);
+        return a;
+    }
+    return NULL;
+}
+
+APR_DECLARE(apr_status_t) mangusta_response_header_exists(mangusta_request_t * req, const char *name) {
+    char *lowername;
+    assert(req);
+
+    if (!zstr(name)) {
+        lowername = apr_lowercase(req->pool, name);
+        if (apr_hash_get(req->rheaders, lowername, APR_HASH_KEY_STRING) != NULL) {
             return APR_SUCCESS;
         }
     }
@@ -836,6 +863,7 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
     char buf[DEFAULT_BUFFER_SIZE];
     apr_hash_index_t *hi;
     char timebuf[APR_RFC822_DATE_LEN];
+    apr_status_t policy;
 
     if (req->status <= 0) {
         mangusta_log(MANGUSTA_LOG_DEBUG, "Status cannot be ZERO. Please set one.");
@@ -847,11 +875,57 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
        TODO Add default headers:
        Content-Type
        Server
-       Connection
+       *Connection
      */
 
     apr_rfc822_date(timebuf, apr_time_now());
     mangusta_response_header_set(req, "Date", timebuf);
+
+    if (zstr(mangusta_request_header_get(req, "Server"))) {
+        mangusta_response_header_set(req, "Server", "libMangusta");
+    }
+
+    if (zstr(mangusta_request_header_get(req, "Content-Type"))) {
+        mangusta_response_header_set(req, "Content-Type", "text/plain");
+    }
+
+    /*
+       Decide the policy for the connection keep-alive
+     */
+
+    if (req->http_version == MANGUSTA_HTTP_10) {
+        policy = APR_EOF;
+    } else {
+        char *oldc;
+        oldc = mangusta_request_header_get(req, "Connection");
+        if (zstr(oldc)) {
+            policy = APR_EOF;
+        } else if (strcasestr(oldc, "keep-alive")) {
+            policy = APR_EAGAIN;
+        } else {
+            policy = APR_EOF;
+        }
+    }
+
+    if (APR_STATUS_IS_EAGAIN(policy)) {
+        char *oldc;
+        oldc = mangusta_response_header_get(req, "Connection");
+
+        if (!zstr(oldc) && strcasestr(oldc, "close")) {
+            policy = APR_EOF;
+        }
+    }
+
+    if (req->status >= 400) {
+        policy = APR_EOF;
+    }
+
+    mangusta_response_header_del(req, "Connection");
+    if (APR_STATUS_IS_EAGAIN(policy)) {
+        mangusta_response_header_set(req, "Connection", "keep-alive");
+    } else {
+        mangusta_response_header_set(req, "Connection", "Close");
+    }
 
     //mangusta_response_header_set(req, "Connection", "Close"); // TODO Only if keep alive is disabled and header is not set
 
@@ -873,6 +947,9 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
             blen = snprintf(buf, sizeof(buf) - 1, "%s: %s\r\n", key, val);
             buf[blen] = '\0';
             mangusta_connection_send(req->conn, buf, &blen);
+#if MANGUSTA_DEBUG >= 3
+            mangusta_log(MANGUSTA_LOG_DEBUG, "Sending header '%s'=>'%s'", key, val);
+#endif
         }
     }
 
@@ -886,7 +963,7 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req) {
         mangusta_buffer_reset(req->response);
     }
 
-    return APR_SUCCESS;
+    return policy;
 }
 
 static void do_subst(const char *in, mangusta_buffer_t * buff, const char *s1, const char *s2) {

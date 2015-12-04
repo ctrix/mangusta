@@ -95,6 +95,7 @@ static void curl_perform(mangusta_ctx_t * ctx, const char *url, long ver, const 
             mangusta_context_stop(ctx);
         }
 
+	curl_formfree(formpost);
         curl_slist_free_all(chunk);
 
         /* always cleanup */

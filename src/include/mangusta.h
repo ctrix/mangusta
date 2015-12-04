@@ -155,6 +155,7 @@ APR_DECLARE(char *) mangusta_request_postvar(mangusta_request_t * req, const cha
 APR_DECLARE(apr_status_t) mangusta_response_status_set(mangusta_request_t * req, short status, const char *message);
 APR_DECLARE(apr_status_t) mangusta_response_header_del(mangusta_request_t * req, const char *name);
 APR_DECLARE(apr_status_t) mangusta_response_header_set(mangusta_request_t * req, const char *name, const char *value);
+APR_DECLARE(char *) mangusta_response_header_get(mangusta_request_t * req, const char *name);
 APR_DECLARE(apr_status_t) mangusta_response_header_exists(mangusta_request_t * req, const char *name);
 APR_DECLARE(apr_status_t) mangusta_response_body_clear(mangusta_request_t * req);
 APR_DECLARE(apr_status_t) mangusta_response_body_append(mangusta_request_t * req, const char *value, apr_uint32_t size);
@@ -163,6 +164,7 @@ APR_DECLARE(apr_status_t) mangusta_response_write(mangusta_request_t * req);
 
 APR_DECLARE(apr_status_t) mangusta_error_write(mangusta_request_t * req);
 
+APR_DECLARE(char *) apr_lowercase(apr_pool_t * pool, const char *in);
 APR_DECLARE(char *) mangusta_html_specialchars(apr_pool_t * pool, const char *in);
 APR_DECLARE(char *) mangusta_urldecode(apr_pool_t * pool, const char *intext);
 APR_DECLARE(char *) mangusta_urlencode(apr_pool_t * pool, const char *var);
