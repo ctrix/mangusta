@@ -34,6 +34,15 @@ typedef short int apr_bool_t;
 #define MANGUSTA_REQUEST_HEADER_MAX_LEN 4 * 1024
 #define MANGUSTA_REQUEST_HEADERS_MAX_SIZE 8 * 1024
 
+#define MANGUSTA_HEADER_DATE "Date"
+#define MANGUSTA_HEADER_CONNECTION "Connection"
+#define MANGUSTA_HEADER_SERVER "Server"
+#define MANGUSTA_HEADER_CONTENT_TYPE "Content-Type"
+#define MANGUSTA_HEADER_CONTENT_LENGTH "Content-Length"
+#define MANGUSTA_HEADER_EXPECT "Expect"
+#define MANGUSTA_HEADER_TRANSFER_ENCODING "Transfer-Encoding"
+
+
 typedef enum http_resp_codes_e http_resp_codes_t;
 enum http_resp_codes_e {
     HTTP_CONTINUE = 100,

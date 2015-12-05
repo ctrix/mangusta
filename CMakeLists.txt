@@ -49,7 +49,7 @@ INCLUDE(TestInline)
 
 # TODO (only when debugging
 IF(CMAKE_COMPILER_IS_GNUCXX )
-	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wstrict-prototypes -fomit-frame-pointer -O0 -g -ggdb -std=c11")
+	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wstrict-prototypes -fomit-frame-pointer -O2 -g -ggdb -std=c11")
 	SET(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fPIC"  )
 	SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fPIC"  )
 ENDIF(CMAKE_COMPILER_IS_GNUCXX )

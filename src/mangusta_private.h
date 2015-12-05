@@ -12,6 +12,7 @@
 #include "apr_poll.h"
 #include "apr_hash.h"
 #include "apr_queue.h"
+#include "apr_signal.h"
 #include "apr_thread_pool.h"
 
 #include "mbedtls/config.h"

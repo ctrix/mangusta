@@ -209,7 +209,9 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
         mangusta_log(MANGUSTA_LOG_DEBUG, "Error handshaking TLS.");
         goto done;
     }
+#if MANGUSTA_DEBUG >= 2
     mangusta_log(MANGUSTA_LOG_DEBUG, "TLS Handshaking done");
+#endif
 #endif
 
     rv = apr_pollset_create(&conn->pollset, DEFAULT_POLLSET_NUM, conn->pool, APR_POLLSET_WAKEABLE);
@@ -299,7 +301,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
                                     char *cont = "HTTP/1.1 100 Continue\r\n\r\n";
                                     apr_size_t blen = strlen(cont);
 
-                                    if (((exp = mangusta_request_header_get(conn->current, "Expect")) != NULL) && (strstr(exp, "continue"))) {
+                                    if (((exp = mangusta_request_header_get(conn->current, MANGUSTA_HEADER_EXPECT)) != NULL) && (strstr(exp, "continue"))) {
                                         mangusta_log(MANGUSTA_LOG_DEBUG, "Sending 100-continue");
                                         if (mangusta_connection_send(conn, cont, &blen) != APR_SUCCESS) {
                                             goto done;
@@ -348,7 +350,7 @@ static void *APR_THREAD_FUNC conn_thread_run(apr_thread_t * UNUSED(thread), void
 
                        If no callback is set, then the default is to reply with a 500 Internal Server Error
                      */
-                    ctype = mangusta_request_header_get(req, "Content-Type");
+                    ctype = mangusta_request_header_get(req, MANGUSTA_HEADER_CONTENT_TYPE);
                     if (ctype != NULL) {
                         if (strncmp(ctype, "application/x-www-form-urlencoded", sizeof("application/x-www-form-urlencoded")) == 0) {
                             mangusta_request_extract_form_urlencoded(req);

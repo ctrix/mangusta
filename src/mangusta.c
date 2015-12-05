@@ -8,7 +8,11 @@
 /* ******************************************************************************* */
 
 APR_DECLARE(apr_status_t) mangusta_init(void) {
-    return apr_initialize();
+    apr_initialize();
+
+    apr_signal(SIGPIPE, NULL);
+
+    return APR_SUCCESS;
 }
 
 APR_DECLARE(apr_status_t) mangusta_shutdown(void) {
